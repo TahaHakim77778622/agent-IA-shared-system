@@ -1,0 +1,10 @@
+# Configuration de la base de données
+DATABASE_URL=mysql+pymysql://root:password@localhost:3306/agent_db
+
+# Clé secrète pour JWT (générez une clé sécurisée en production)
+SECRET_KEY=your-super-secret-key-here-change-in-production
+
+# Configuration du serveur
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=info 

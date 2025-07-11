@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Base de données MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: agent_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: agent_db
+      MYSQL_USER: agent_user
+      MYSQL_PASSWORD: agent_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - agent_network
+
+  # Backend FastAPI
+  backend:
+    build: .
+    container_name: fastapi_backend
+    restart: always
+    environment:
+      - DATABASE_URL=mysql+pymysql://agent_user:agent_password@mysql:3306/agent_db
+      - SECRET_KEY=your-super-secret-key-here-change-in-production
+      - HOST=0.0.0.0
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+    networks:
+      - agent_network
+    volumes:
+      - ./:/app
+    command: python run.py
+
+volumes:
+  mysql_data:
+
+networks:
+  agent_network:
+    driver: bridge 

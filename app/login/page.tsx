@@ -42,12 +42,10 @@ export default function LoginPage() {
 
     try {
       await login(formData.email, formData.password);
-
       toast({
         title: "Connexion réussie",
         description: "Bienvenue dans ProMail Assistant !",
       });
-
       router.push("/dashboard");
     } catch (error: any) {
       toast({
@@ -56,7 +54,7 @@ export default function LoginPage() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 

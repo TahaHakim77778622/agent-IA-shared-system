@@ -7,6 +7,8 @@ from auth import get_current_user
 from models import User
 from schemas import User as UserSchema
 from fastapi import Depends
+import importlib.util
+import sys
 
 # Charger les variables d'environnement
 env_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -48,11 +50,13 @@ async def startup_event():
 
 # Importer et inclure les routes
 from api import emails, login, register, login_history
+from api import generate_email  # Import du nouveau router
 
 app.include_router(emails.router, prefix="/api/emails", tags=["emails"])
 app.include_router(login.router, prefix="/api/login", tags=["login"])
 app.include_router(register.router, prefix="/api/register", tags=["register"])
 app.include_router(login_history.router, prefix="/api/login-history", tags=["login-history"])
+app.include_router(generate_email.router, prefix="/api/generate-email", tags=["generate-email"])
 
 # Route racine
 @app.get("/")

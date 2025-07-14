@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -214,6 +214,27 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
   const router = useRouter()
+  const [emails, setEmails] = useState<any[]>([]);
+
+  const fetchEmails = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8000/api/emails/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Erreur lors de la récupération des emails");
+      const data = await res.json();
+      setEmails(data);
+    } catch (err) {
+      setEmails([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmails();
+  }, []);
 
   const handleGenerate = async () => {
     if (!selectedType || !formData.recipient || !formData.context) {
@@ -227,16 +248,21 @@ export default function DashboardPage() {
 
     setIsGenerating(true)
 
+    // Construction du prompt pour l'IA
+    const prompt = `Rédige un email de type ${selectedType} à ${formData.recipient}${formData.company ? ` de l'entreprise ${formData.company}` : ''}.
+Contexte : ${formData.context}
+Ton : ${formData.tone}
+Urgence : ${formData.urgency}`
+
     try {
-      const response = await fetch("/api/generate-email", {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:8000/api/generate-email/generate-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          type: selectedType,
-          ...formData,
-        }),
+        body: JSON.stringify({ prompt }),
       })
 
       if (!response.ok) {
@@ -245,6 +271,7 @@ export default function DashboardPage() {
 
       const data = await response.json()
       setGeneratedEmail(data.email)
+      fetchEmails(); // Rafraîchir l'historique après génération
 
       toast({
         title: "Email généré avec succès",
@@ -582,83 +609,119 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>2. Informations</CardTitle>
-              <CardDescription>Personnalisez votre email</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="recipient">Destinataire *</Label>
-                  <Input
-                    id="recipient"
-                    placeholder="Ex: M. Dupont"
-                    value={formData.recipient}
-                    onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company">Entreprise</Label>
-                  <Input
-                    id="company"
-                    placeholder="Ex: ABC Solutions"
-                    value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  />
-                </div>
-              </div>
+   <Card className="bg-card border-border">
+  <CardHeader>
+    <CardTitle className="text-foreground">2. Personnalisez votre email</CardTitle>
+    <CardDescription className="text-muted-foreground">
+      Remplissez les informations pour adapter le contenu
+    </CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-4">
 
-              <div>
-                <Label htmlFor="context">Contexte *</Label>
-                <Textarea
-                  id="context"
-                  placeholder="Décrivez la situation..."
-                  className="min-h-[120px]"
-                  value={formData.context}
-                  onChange={(e) => setFormData({ ...formData, context: e.target.value })}
-                />
-              </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="recipient" className="text-foreground">
+          Destinataire *
+        </Label>
+        <input
+          id="recipient"
+          placeholder="Ex: M. Dupont"
+          value={formData.recipient}
+          onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
+          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
+          autoComplete="off"
+        />
+      </div>
+      <div>
+        <Label htmlFor="company" className="text-foreground">
+          Entreprise
+        </Label>
+        <input
+          id="company"
+          placeholder="Ex: ABC Solutions"
+          value={formData.company}
+          onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
+          autoComplete="off"
+        />
+      </div>
+    </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="tone">Ton</Label>
-                  <Select value={formData.tone} onValueChange={(value) => setFormData({ ...formData, tone: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="professionnel">Professionnel</SelectItem>
-                      <SelectItem value="cordial">Cordial</SelectItem>
-                      <SelectItem value="formel">Formel</SelectItem>
-                      <SelectItem value="amical">Amical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="urgency">Urgence</Label>
-                  <Select
-                    value={formData.urgency}
-                    onValueChange={(value) => setFormData({ ...formData, urgency: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="faible">Faible</SelectItem>
-                      <SelectItem value="normale">Normale</SelectItem>
-                      <SelectItem value="élevée">Élevée</SelectItem>
-                      <SelectItem value="urgente">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+    <div>
+      <Label htmlFor="subject" className="text-foreground">
+        Objet personnalisé
+      </Label>
+      <input
+        id="subject"
+        placeholder="Laissez vide pour génération automatique"
+        value={formData.subject}
+        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+        className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
+        autoComplete="off"
+      />
+    </div>
 
-              <Button onClick={handleGenerate} className="w-full" disabled={isGenerating} size="lg">
-                {isGenerating ? "Génération en cours..." : "Générer l'email"}
-              </Button>
-            </CardContent>
-          </Card>
+    <div>
+      <Label htmlFor="context" className="text-foreground">
+        Contexte et détails *
+      </Label>
+      <textarea
+        id="context"
+        placeholder="Décrivez la situation, les éléments importants, ce que vous souhaitez obtenir..."
+        value={formData.context}
+        onChange={(e) => setFormData({ ...formData, context: e.target.value })}
+        className="min-h-[120px] bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
+        autoComplete="off"
+      />
+    </div>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="tone" className="text-foreground">
+          Ton de l'email
+        </Label>
+        <select
+          id="tone"
+          value={formData.tone}
+          onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
+          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
+        >
+          <option value="professionnel">Professionnel</option>
+          <option value="cordial">Cordial</option>
+          <option value="formel">Formel</option>
+          <option value="amical">Amical</option>
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="urgency" className="text-foreground">
+          Niveau d'urgence
+        </Label>
+        <select
+          id="urgency"
+          value={formData.urgency}
+          onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}
+          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
+        >
+          <option value="faible">Faible</option>
+          <option value="normale">Normale</option>
+          <option value="élevée">Élevée</option>
+          <option value="urgente">Urgente</option>
+        </select>
+      </div>
+    </div>
+
+    <Button
+      onClick={handleGenerate}
+      className="w-full bg-primary hover:bg-primary/90"
+      disabled={isGenerating}
+      size="lg"
+    >
+      {isGenerating ? "Génération en cours..." : "Générer l'email"}
+    </Button>
+  </CardContent>
+</Card>
+
+
         </div>
 
         {/* Résultat */}
@@ -796,53 +859,28 @@ export default function DashboardPage() {
       </Card>
 
       <div className="space-y-4">
-        {filteredHistory.map((item) => (
-          <Card key={item.id}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">{item.subject}</h3>
-                    <Badge className={typeColors[item.type as keyof typeof typeColors]}>
-                      {typeLabels[item.type as keyof typeof typeLabels]}
-                    </Badge>
+        {emails
+          .filter((item) =>
+            item.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.body.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          .map((item) => (
+            <Card key={item.id}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold">{item.subject}</h3>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                      <span>Créé le : {new Date(item.createdAt).toLocaleString("fr-FR")}</span>
+                    </div>
+                    <p className="text-muted-foreground text-sm">{item.body.slice(0, 100)}...</p>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                    <span>À: {item.recipient}</span>
-                    {item.company && <span>• {item.company}</span>}
-                    <span>• {new Date(item.date).toLocaleDateString("fr-FR")}</span>
-                  </div>
-                  <p className="text-muted-foreground text-sm">{item.preview}</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Éditer
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Download className="h-4 w-4 mr-2" />
-                        Télécharger
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))}
       </div>
     </div>
   )

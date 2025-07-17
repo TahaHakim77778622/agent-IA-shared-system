@@ -37,3 +37,11 @@ model LoginHistory {
   user      User     @relation(fields: [userId], references: [id])
   userId    Int
 }
+
+model Template {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  type        String?
+  actif       Boolean  @default(true)
+}

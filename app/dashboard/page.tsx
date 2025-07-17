@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 // Types d'emails
 const emailTypes = [
@@ -148,37 +149,6 @@ const navigationItems = [
   },
 ]
 
-// Données simulées
-const mockHistory = [
-  {
-    id: 1,
-    subject: "Relance facture n°2024-001",
-    type: "relance",
-    recipient: "M. Dupont",
-    company: "ABC Solutions",
-    date: "2024-01-15",
-    preview: "Bonjour M. Dupont, J'espère que vous allez bien...",
-  },
-  {
-    id: 2,
-    subject: "Demande de rendez-vous commercial",
-    type: "rendez-vous",
-    recipient: "Mme Martin",
-    company: "TechCorp",
-    date: "2024-01-14",
-    preview: "Madame Martin, Suite à notre échange téléphonique...",
-  },
-  {
-    id: 3,
-    subject: "Réclamation produit défectueux",
-    type: "reclamation",
-    recipient: "Service Client",
-    company: "ElectroPlus",
-    date: "2024-01-12",
-    preview: "Madame, Monsieur, Je vous écris pour vous faire part...",
-  },
-]
-
 const typeColors = {
   reclamation: "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400",
   relance: "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400",
@@ -215,6 +185,107 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const router = useRouter()
   const [emails, setEmails] = useState<any[]>([]);
+
+  // Remplacer emailTypes par des templates dynamiques
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [templateForm, setTemplateForm] = useState({ title: "", description: "", type: "", actif: true });
+
+  // Ajoute l'état pour la confirmation de suppression
+  const [confirmDelete, setConfirmDelete] = useState<{open: boolean, id: number|null}>({open: false, id: null});
+
+  // Ajoute l'état pour la confirmation de suppression d'email
+  const [confirmDeleteEmail, setConfirmDeleteEmail] = useState<{open: boolean, id: number|null}>({open: false, id: null});
+  // Ajoute l'état pour l'édition d'email
+  const [editEmail, setEditEmail] = useState<any>(null);
+  const [editEmailForm, setEditEmailForm] = useState({ subject: "", body: "", recipient: "", type: "", company: "" });
+
+  // Affiche le formulaire pour ajouter un template
+  const openAddTemplateForm = () => {
+    setShowTemplateForm(true);
+    setEditingTemplate(null);
+    setTemplateForm({ title: "", description: "", type: "", actif: true });
+  };
+  // Affiche le formulaire pour éditer un template
+  const openEditTemplateForm = (template: any) => {
+    setShowTemplateForm(true);
+    setEditingTemplate(template);
+    setTemplateForm({ title: template.title, description: template.description, type: template.type, actif: template.actif });
+  };
+  // Ferme le formulaire
+  const closeTemplateForm = () => {
+    setShowTemplateForm(false);
+    setEditingTemplate(null);
+    setTemplateForm({ title: "", description: "", type: "", actif: true });
+  };
+
+  // Fetch templates depuis l'API
+  const fetchTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8000/api/templates/", {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Erreur lors de la récupération des templates");
+      const data = await res.json();
+      setTemplates(data);
+    } catch (err) {
+      setTemplates([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+  useEffect(() => { fetchTemplates(); }, []);
+
+  // Ajout ou modification
+  const handleSubmitTemplate = async (e: any) => {
+    e.preventDefault();
+    const token = localStorage.getItem("token");
+    const url = editingTemplate ? `http://localhost:8000/api/templates/${editingTemplate.id}` : "http://localhost:8000/api/templates/";
+    const method = editingTemplate ? "PUT" : "POST";
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(templateForm),
+      });
+      if (!res.ok) throw new Error("Erreur lors de l'enregistrement du template");
+      closeTemplateForm();
+      fetchTemplates();
+      toast({ title: "Succès", description: editingTemplate ? "Template modifié." : "Template ajouté." });
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible d'enregistrer le template.", variant: "destructive" });
+    }
+  };
+  // Suppression
+  const handleDeleteTemplate = async (id: number) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/templates/${id}`, {
+        method: "DELETE",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Erreur lors de la suppression du template");
+      closeTemplateForm();
+      fetchTemplates();
+      toast({ title: "Succès", description: "Template supprimé." });
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible de supprimer le template.", variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || (!loading && !user)) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
 
   const fetchEmails = async () => {
     try {
@@ -262,11 +333,22 @@ Urgence : ${formData.urgency}`
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt,
+          subject: formData.subject || `Email généré par IA`,
+          type: selectedType,
+          recipient: formData.recipient,
+          company: formData.company,
+        }),
       })
 
       if (!response.ok) {
-        throw new Error("Erreur lors de la génération")
+        let errorMsg = "Erreur lors de la génération";
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
       }
 
       const data = await response.json()
@@ -277,10 +359,10 @@ Urgence : ${formData.urgency}`
         title: "Email généré avec succès",
         description: "Votre email professionnel est prêt !",
       })
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erreur",
-        description: "Impossible de générer l'email. Veuillez réessayer.",
+        description: error.message || "Impossible de générer l'email. Veuillez réessayer.",
         variant: "destructive",
       })
     } finally {
@@ -304,12 +386,53 @@ Urgence : ${formData.urgency}`
     router.push("/")
   }
 
-  const filteredHistory = mockHistory.filter(
-    (item) =>
-      item.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.company.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const handleUpdateEmail = async (e: any) => {
+    e.preventDefault();
+    if (!editEmail) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/emails/${editEmail.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(editEmailForm),
+      });
+      if (!res.ok) throw new Error("Erreur lors de la modification de l'email");
+      fetchEmails();
+      toast({ title: "Succès", description: "Email modifié." });
+      setEditEmail(null);
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible de modifier l'email.", variant: "destructive" });
+    }
+  };
+
+  const handleEditEmail = (email: any) => {
+    setEditEmail(email);
+    setEditEmailForm({
+      subject: email.subject || "",
+      body: email.body || "",
+      recipient: email.recipient || "",
+      type: email.type || "",
+      company: email.company || ""
+    });
+  };
+  const handleDeleteEmail = async (id: number) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/emails/${id}`, {
+        method: "DELETE",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Erreur lors de la suppression de l'email");
+      fetchEmails();
+      toast({ title: "Succès", description: "Email supprimé." });
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible de supprimer l'email.", variant: "destructive" });
+    }
+    setConfirmDeleteEmail({open: false, id: null});
+  };
 
   // Sidebar Component
   const AppSidebar = () => (
@@ -504,7 +627,7 @@ Urgence : ${formData.urgency}`
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockHistory.slice(0, 3).map((item) => (
+              {emails.slice(0, 3).map((item) => (
                 <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border">
                   <div className="bg-primary/10 p-2 rounded-full">
                     <Mail className="h-4 w-4 text-primary" />
@@ -609,119 +732,128 @@ Urgence : ${formData.urgency}`
             </CardContent>
           </Card>
 
-   <Card className="bg-card border-border">
-  <CardHeader>
-    <CardTitle className="text-foreground">2. Personnalisez votre email</CardTitle>
-    <CardDescription className="text-muted-foreground">
-      Remplissez les informations pour adapter le contenu
-    </CardDescription>
-  </CardHeader>
-  <CardContent className="space-y-4">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-foreground">2. Personnalisez votre email</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Remplissez les informations pour adapter le contenu
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleGenerate();
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="recipient" className="text-foreground">
+                      Destinataire *
+                    </Label>
+                    <Input
+                      id="recipient"
+                      placeholder="Ex: M. Dupont"
+                      value={formData.recipient}
+                      onChange={e => setFormData(prev => ({ ...prev, recipient: e.target.value }))}
+                      className="bg-background border-border"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="company" className="text-foreground">
+                      Entreprise
+                    </Label>
+                    <Input
+                      id="company"
+                      placeholder="Ex: ABC Solutions"
+                      value={formData.company}
+                      onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                      className="bg-background border-border"
+                    />
+                  </div>
+                </div>
 
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <Label htmlFor="recipient" className="text-foreground">
-          Destinataire *
-        </Label>
-        <input
-          id="recipient"
-          placeholder="Ex: M. Dupont"
-          value={formData.recipient}
-          onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
-          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
-          autoComplete="off"
-        />
-      </div>
-      <div>
-        <Label htmlFor="company" className="text-foreground">
-          Entreprise
-        </Label>
-        <input
-          id="company"
-          placeholder="Ex: ABC Solutions"
-          value={formData.company}
-          onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
-          autoComplete="off"
-        />
-      </div>
-    </div>
+                <div>
+                  <Label htmlFor="subject" className="text-foreground">
+                    Objet personnalisé
+                  </Label>
+                  <Input
+                    id="subject"
+                    placeholder="Laissez vide pour génération automatique"
+                    value={formData.subject}
+                    onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                    className="bg-background border-border"
+                  />
+                </div>
 
-    <div>
-      <Label htmlFor="subject" className="text-foreground">
-        Objet personnalisé
-      </Label>
-      <input
-        id="subject"
-        placeholder="Laissez vide pour génération automatique"
-        value={formData.subject}
-        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-        className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
-        autoComplete="off"
-      />
-    </div>
+                <div>
+                  <Label htmlFor="context" className="text-foreground">
+                    Contexte et détails *
+                  </Label>
+                  <Textarea
+                    id="context"
+                    placeholder="Décrivez la situation, les éléments importants, ce que vous souhaitez obtenir..."
+                    className="min-h-[120px] bg-background border-border"
+                    value={formData.context}
+                    onChange={e => setFormData(prev => ({ ...prev, context: e.target.value }))}
+                    required
+                  />
+                </div>
 
-    <div>
-      <Label htmlFor="context" className="text-foreground">
-        Contexte et détails *
-      </Label>
-      <textarea
-        id="context"
-        placeholder="Décrivez la situation, les éléments importants, ce que vous souhaitez obtenir..."
-        value={formData.context}
-        onChange={(e) => setFormData({ ...formData, context: e.target.value })}
-        className="min-h-[120px] bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
-        autoComplete="off"
-      />
-    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="tone" className="text-foreground">
+                      Ton de l'email
+                    </Label>
+                    <Select
+                      value={formData.tone}
+                      onValueChange={value => setFormData(prev => ({ ...prev, tone: value }))}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="professionnel">Professionnel</SelectItem>
+                        <SelectItem value="cordial">Cordial</SelectItem>
+                        <SelectItem value="formel">Formel</SelectItem>
+                        <SelectItem value="amical">Amical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="urgency" className="text-foreground">
+                      Niveau d'urgence
+                    </Label>
+                    <Select
+                      value={formData.urgency}
+                      onValueChange={value => setFormData(prev => ({ ...prev, urgency: value }))}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="faible">Faible</SelectItem>
+                        <SelectItem value="normale">Normale</SelectItem>
+                        <SelectItem value="élevée">Élevée</SelectItem>
+                        <SelectItem value="urgente">Urgente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <Label htmlFor="tone" className="text-foreground">
-          Ton de l'email
-        </Label>
-        <select
-          id="tone"
-          value={formData.tone}
-          onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
-          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
-        >
-          <option value="professionnel">Professionnel</option>
-          <option value="cordial">Cordial</option>
-          <option value="formel">Formel</option>
-          <option value="amical">Amical</option>
-        </select>
-      </div>
-      <div>
-        <Label htmlFor="urgency" className="text-foreground">
-          Niveau d'urgence
-        </Label>
-        <select
-          id="urgency"
-          value={formData.urgency}
-          onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}
-          className="bg-background border border-border text-foreground rounded-md px-3 py-2 w-full focus:outline-none focus:border-primary transition"
-        >
-          <option value="faible">Faible</option>
-          <option value="normale">Normale</option>
-          <option value="élevée">Élevée</option>
-          <option value="urgente">Urgente</option>
-        </select>
-      </div>
-    </div>
-
-    <Button
-      onClick={handleGenerate}
-      className="w-full bg-primary hover:bg-primary/90"
-      disabled={isGenerating}
-      size="lg"
-    >
-      {isGenerating ? "Génération en cours..." : "Générer l'email"}
-    </Button>
-  </CardContent>
-</Card>
-
-
+                <Button
+                  type="submit"
+                  className="w-full bg-primary hover:bg-primary/90"
+                  disabled={isGenerating}
+                  size="lg"
+                >
+                  {isGenerating ? "Génération en cours..." : "Générer l'email"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Résultat */}
@@ -779,7 +911,7 @@ Urgence : ${formData.urgency}`
     </div>
   )
 
-  // Autres vues simplifiées
+  // Remplacer la vue TemplatesView par une version CRUD fiable
   const TemplatesView = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -787,44 +919,56 @@ Urgence : ${formData.urgency}`
           <h1 className="text-3xl font-bold text-foreground">Templates</h1>
           <p className="text-muted-foreground">Gérez vos modèles d'emails</p>
         </div>
-        <Button>
+        <Button onClick={() => { setShowTemplateForm(true); setEditingTemplate(null); setTemplateForm({ title: "", description: "", type: "", actif: true }); }}>
           <Plus className="h-4 w-4 mr-2" />
           Nouveau Template
         </Button>
       </div>
-
+      {activeView === "templates" && showTemplateForm && (
+        <form className="p-4 border rounded-lg bg-muted/10" onSubmit={handleSubmitTemplate}>
+          <h2 className="font-semibold mb-2">{editingTemplate ? "Modifier" : "Ajouter"} un template</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input placeholder="Titre" value={templateForm.title} onChange={e => setTemplateForm(f => ({ ...f, title: e.target.value }))} required />
+            <Input placeholder="Type (ex: reclamation)" value={templateForm.type} onChange={e => setTemplateForm(f => ({ ...f, type: e.target.value }))} required />
+            <Input placeholder="Description" value={templateForm.description} onChange={e => setTemplateForm(f => ({ ...f, description: e.target.value }))} />
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button type="submit">{editingTemplate ? "Enregistrer" : "Ajouter"}</Button>
+            <Button variant="outline" type="button" onClick={closeTemplateForm}>Annuler</Button>
+            {editingTemplate && (
+              <Button variant="destructive" type="button" onClick={() => setConfirmDelete({open: true, id: editingTemplate.id})}>Supprimer</Button>
+            )}
+          </div>
+        </form>
+      )}
       <div className="grid gap-6">
-        {emailTypes.map((template) => {
-          const Icon = template.icon
-          return (
-            <Card key={template.id}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-lg ${template.color}`}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold">{template.title}</h3>
-                      <p className="text-muted-foreground">{template.description}</p>
-                    </div>
-                    <Badge>Actif</Badge>
+        {loadingTemplates ? <div>Chargement...</div> : templates.length === 0 ? <div>Aucun template.</div> : templates.map((template) => (
+          <Card key={template.id}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-muted/20">
+                    <FileText className="h-6 w-6" />
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <TestTube className="h-4 w-4 mr-2" />
-                      Tester
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Éditer
-                    </Button>
+                  <div>
+                    <h3 className="text-lg font-semibold">{template.title}</h3>
+                    <p className="text-muted-foreground">{template.description}</p>
+                    <Badge>{template.actif ? "Actif" : "Inactif"}</Badge>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setShowTemplateForm(true); setEditingTemplate(template); setTemplateForm({ title: template.title, description: template.description, type: template.type, actif: template.actif }); }}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Éditer
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => setConfirmDelete({open: true, id: template.id})}>
+                    Supprimer
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   )
@@ -878,6 +1022,15 @@ Urgence : ${formData.urgency}`
                     <p className="text-muted-foreground text-sm">{item.body.slice(0, 100)}...</p>
                   </div>
                 </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleEditEmail(item)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Éditer
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteEmail({open: true, id: item.id})}>
+                    Supprimer
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -895,20 +1048,20 @@ Urgence : ${formData.urgency}`
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">{mockHistory.length}</div>
+            <div className="text-3xl font-bold text-blue-600 mb-2">{emails.length}</div>
             <p className="text-muted-foreground">Emails totaux</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">2</div>
+            <div className="text-3xl font-bold text-green-600 mb-2">{emails.filter(e => e.exported).length}</div>
             <p className="text-muted-foreground">Exportés</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-orange-600 mb-2">15</div>
-            <p className="text-muted-foreground">KB totaux</p>
+            <div className="text-3xl font-bold text-orange-600 mb-2">{emails.length}</div>
+            <p className="text-muted-foreground">Total générés</p>
           </CardContent>
         </Card>
         <Card>
@@ -922,105 +1075,125 @@ Urgence : ${formData.urgency}`
       <Card>
         <CardContent className="p-6">
           <div className="space-y-4">
-            {mockHistory.map((item) => (
-              <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                <Button variant="ghost" size="sm" className="p-0">
-                  <Square className="h-5 w-5" />
-                </Button>
-                <div className="flex-1">
-                  <h4 className="font-medium">{item.subject}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {item.recipient} • {new Date(item.date).toLocaleDateString("fr-FR")}
-                  </p>
+            {emails.length === 0 ? (
+              <div className="text-center text-muted-foreground">Aucun email généré pour l'instant.</div>
+            ) : (
+              emails.map((item) => (
+                <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <Button variant="ghost" size="sm" className="p-0">
+                    <Square className="h-5 w-5" />
+                  </Button>
+                  <div className="flex-1">
+                    <h4 className="font-medium">{item.subject}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Destinataire : {item.recipient || '—'}<br />
+                      Société : {item.company || '—'}<br />
+                      Type : {item.type || '—'}<br />
+                      Créé le : {item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ''}
+                    </p>
+                  </div>
+                  <Badge className={typeColors[item.type as keyof typeof typeColors] || ''}>
+                    {typeLabels[item.type as keyof typeof typeLabels] || item.type}
+                  </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-2" />
+                        Exporter
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Word (.docx)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Code className="h-4 w-4 mr-2" />
+                        HTML (.html)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email (.eml)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <Badge className={typeColors[item.type as keyof typeof typeColors]}>
-                  {typeLabels[item.type as keyof typeof typeLabels]}
-                </Badge>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Exporter
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Word (.docx)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Code className="h-4 w-4 mr-2" />
-                      HTML (.html)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Email (.eml)
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
     </div>
   )
 
-  const StatsView = () => (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Statistiques</h1>
-        <p className="text-muted-foreground">Analysez vos performances</p>
-      </div>
+  const StatsView = () => {
+    // Calculer les stats à partir des vrais emails générés
+    const emailsByType = emails.reduce((acc, email) => {
+      acc[email.type] = (acc[email.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Statistiques</h1>
+          <p className="text-muted-foreground">Analysez vos performances</p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Emails par type</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.entries(typeLabels).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <span className="text-sm">{label}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 bg-muted rounded-full">
-                      <div className="h-2 bg-primary rounded-full" style={{ width: "60%" }} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Emails par type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Object.entries(typeLabels).map(([key, label]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="text-sm">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-20 h-2 bg-muted rounded-full">
+                        <div className="h-2 bg-primary rounded-full" style={{ width: `${(emailsByType[key] || 0) / (emails.length || 1) * 100}%` }} />
+                      </div>
+                      <span className="text-sm text-muted-foreground">{emailsByType[key] || 0}</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">12</span>
                   </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance mensuelle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-500 mb-2">
+                  {(() => {
+                    const thisMonth = new Date().getMonth();
+                    const count = emails.filter(e => new Date(e.createdAt).getMonth() === thisMonth).length;
+                    return `+${count}`;
+                  })()}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <p className="text-muted-foreground">Générés ce mois</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance mensuelle</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-500 mb-2">+24%</div>
-              <p className="text-muted-foreground">Amélioration ce mois</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Temps moyen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-500 mb-2">2.3s</div>
-              <p className="text-muted-foreground">Génération d'email</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Emails totaux</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-500 mb-2">{emails.length}</div>
+                <p className="text-muted-foreground">Total générés</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
-  )
+    );
+  };
 
   const renderView = () => {
     switch (activeView) {
@@ -1058,7 +1231,50 @@ Urgence : ${formData.urgency}`
           </main>
         </SidebarInset>
       </div>
+      <Dialog open={confirmDelete.open} onOpenChange={open => !open && setConfirmDelete({open: false, id: null})}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+          </DialogHeader>
+          <p>Voulez-vous vraiment supprimer ce template ? Cette action est irréversible.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete({open: false, id: null})}>Annuler</Button>
+            <Button variant="destructive" onClick={() => { if (confirmDelete.id) handleDeleteTemplate(confirmDelete.id); setConfirmDelete({open: false, id: null}); }}>Supprimer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmDeleteEmail.open} onOpenChange={open => !open && setConfirmDeleteEmail({open: false, id: null})}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+          </DialogHeader>
+          <p>Voulez-vous vraiment supprimer cet email ? Cette action est irréversible.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteEmail({open: false, id: null})}>Annuler</Button>
+            <Button variant="destructive" onClick={() => confirmDeleteEmail.id && handleDeleteEmail(confirmDeleteEmail.id)}>Supprimer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!editEmail} onOpenChange={open => !open && setEditEmail(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier l'email</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateEmail} className="space-y-4">
+            <Input placeholder="Sujet" value={editEmailForm.subject} onChange={e => setEditEmailForm(f => ({ ...f, subject: e.target.value }))} required />
+            <Textarea placeholder="Contenu" value={editEmailForm.body} onChange={e => setEditEmailForm(f => ({ ...f, body: e.target.value }))} required />
+            <Input placeholder="Destinataire" value={editEmailForm.recipient} onChange={e => setEditEmailForm(f => ({ ...f, recipient: e.target.value }))} />
+            <Input placeholder="Type" value={editEmailForm.type} onChange={e => setEditEmailForm(f => ({ ...f, type: e.target.value }))} />
+            <Input placeholder="Société" value={editEmailForm.company} onChange={e => setEditEmailForm(f => ({ ...f, company: e.target.value }))} />
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setEditEmail(null)}>Annuler</Button>
+              <Button type="submit">Enregistrer</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
   
 }
+

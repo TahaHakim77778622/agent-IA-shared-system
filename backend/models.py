@@ -25,6 +25,9 @@ class Email(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     createdAt: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     userId: Mapped[int] = mapped_column(Integer, ForeignKey("User.id"), nullable=False)
+    type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    recipient: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    company: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     
     # Relations
     user: Mapped["User"] = relationship("User", back_populates="emails")
@@ -38,3 +41,13 @@ class LoginHistory(Base):
     
     # Relations
     user: Mapped["User"] = relationship("User", back_populates="logins") 
+
+class Template(Base):
+    __tablename__ = "Template"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    actif: Mapped[bool] = mapped_column(Integer, default=1)  # 1 = actif, 0 = inactif
+    # Ajoute d'autres champs si besoin 

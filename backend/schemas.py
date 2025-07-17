@@ -24,6 +24,9 @@ class User(UserBase):
 class EmailBase(BaseModel):
     subject: str
     body: str
+    type: Optional[str] = None
+    recipient: Optional[str] = None
+    company: Optional[str] = None
 
 class EmailCreate(EmailBase):
     pass
@@ -31,6 +34,9 @@ class EmailCreate(EmailBase):
 class EmailUpdate(BaseModel):
     subject: Optional[str] = None
     body: Optional[str] = None
+    type: Optional[str] = None
+    recipient: Optional[str] = None
+    company: Optional[str] = None
 
 class Email(EmailBase):
     id: int
@@ -63,3 +69,24 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None 
+
+# Schémas pour Template
+class TemplateBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    type: Optional[str] = None
+    actif: Optional[bool] = True
+
+class TemplateCreate(TemplateBase):
+    pass
+
+class TemplateUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    actif: Optional[bool] = None
+
+class Template(TemplateBase):
+    id: int
+    class Config:
+        from_attributes = True 

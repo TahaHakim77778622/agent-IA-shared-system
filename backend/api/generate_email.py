@@ -17,6 +17,9 @@ print("COHERE_API_KEY =", COHERE_API_KEY)
 class EmailPrompt(BaseModel):
     prompt: str
     subject: str = "Email généré par IA"
+    type: str | None = None
+    recipient: str | None = None
+    company: str | None = None
     # Tu peux ajouter d'autres champs si besoin (destinataire, etc.)
 
 def generate_email_with_cohere(prompt: str) -> str:
@@ -44,8 +47,15 @@ async def generate_email(
     try:
         print("Prompt envoyé :", prompt.prompt)
         email_body = generate_email_with_cohere(prompt.prompt)
-        # Enregistrement automatique dans la base
-        email_obj = EmailCreate(subject=prompt.subject, body=email_body)
+        # Utiliser le type comme sujet si subject n'est pas fourni
+        subject = prompt.subject or (prompt.type or "Email généré par IA").capitalize()
+        email_obj = EmailCreate(
+            subject=subject,
+            body=email_body,
+            type=prompt.type,
+            recipient=prompt.recipient,
+            company=prompt.company,
+        )
         create_email(db=db, email=email_obj, user_id=current_user.id)
         return {"email": email_body}
     except Exception as e:

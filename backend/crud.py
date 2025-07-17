@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from models import User, Email, LoginHistory
-from schemas import EmailCreate, EmailUpdate, UserCreate
+from schemas import EmailCreate, EmailUpdate, UserCreate, TemplateCreate, TemplateUpdate
 from auth import get_password_hash
 from datetime import datetime
 
@@ -70,3 +70,40 @@ def record_login(db: Session, user_id: int):
 
 def get_login_history(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     return db.query(LoginHistory).filter(LoginHistory.userId == user_id).order_by(LoginHistory.loginAt.desc()).offset(skip).limit(limit).all() 
+
+def create_template(db: Session, template: TemplateCreate):
+    from models import Template
+    db_template = Template(**template.dict())
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+    return db_template
+
+def get_templates(db: Session, skip: int = 0, limit: int = 100):
+    from models import Template
+    return db.query(Template).offset(skip).limit(limit).all()
+
+def get_template(db: Session, template_id: int):
+    from models import Template
+    return db.query(Template).filter(Template.id == template_id).first()
+
+def update_template(db: Session, template_id: int, template_update: TemplateUpdate):
+    from models import Template
+    db_template = get_template(db, template_id)
+    if not db_template:
+        return None
+    update_data = template_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_template, field, value)
+    db.commit()
+    db.refresh(db_template)
+    return db_template
+
+def delete_template(db: Session, template_id: int):
+    from models import Template
+    db_template = get_template(db, template_id)
+    if not db_template:
+        return False
+    db.delete(db_template)
+    db.commit()
+    return True 

@@ -9,3 +9,11 @@ CREATE TABLE `LoginHistory` (
 
 -- AddForeignKey
 ALTER TABLE `LoginHistory` ADD CONSTRAINT `LoginHistory_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+CREATE TABLE IF NOT EXISTS Template (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    type VARCHAR(50),
+    actif BOOLEAN DEFAULT TRUE
+);

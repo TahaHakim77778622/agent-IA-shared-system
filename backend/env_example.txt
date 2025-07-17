@@ -11,3 +11,6 @@ LOG_LEVEL=info
 
 # Clé API HuggingFace pour génération d'email IA
 HUGGINGFACE_API_KEY=hf_votre_token_ici 
+
+# Clé API Cohere pour le chatbot IA
+COHERE_API_KEY=sk-xxxxxxx 

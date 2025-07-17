@@ -207,3 +207,64 @@ pnpm update
 # Backend
 pip install -r requirements.txt --upgrade
 ``` 
+
+---
+
+## 🚀 Installation et Lancement (pour un nouveau poste)
+
+### 1. Cloner le projet
+```bash
+# Remplace par l’URL de ton dépôt
+ git clone https://github.com/ton-utilisateur/nom-du-repo.git
+ cd nom-du-repo
+```
+
+### 2. Installer et lancer le backend
+```bash
+cd backend
+python -m venv venv
+# Sous Windows :
+venv\Scripts\activate
+# Sous Mac/Linux :
+# source venv/bin/activate
+pip install -r requirements.txt
+pip install pymysql
+```
+
+- Copier le fichier `env_example.txt` en `.env` et le remplir (base de données, clé Cohere, etc.)
+- S’assurer que MySQL est installé et la base créée (voir doc plus haut)
+
+```bash
+# Lancer le backend
+python run.py
+# ou
+python start_with_checks.py
+```
+
+### 3. Installer et lancer le frontend
+Dans un autre terminal, à la racine du projet :
+```bash
+npm install
+# ou
+pnpm install
+
+npm run dev
+# ou
+pnpm dev
+```
+
+### 4. Accéder à l’application
+- Frontend : http://localhost:3000
+- Backend (API docs) : http://localhost:8000/docs
+
+---
+
+**Résumé :**
+1. Cloner le repo
+2. Installer backend (venv, requirements, .env, MySQL)
+3. Lancer backend
+4. Installer frontend (npm install)
+5. Lancer frontend
+6. Accéder à l’app sur http://localhost:3000
+
+--- 

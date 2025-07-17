@@ -68,6 +68,8 @@ import {
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import ChatBot from "@/components/ChatBot";
+import ChatBotModal from '@/components/ChatBotModal';
 
 // Types d'emails
 const emailTypes = [
@@ -185,6 +187,7 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const router = useRouter()
   const [emails, setEmails] = useState<any[]>([]);
+  const [showChatBot, setShowChatBot] = useState(false);
 
   // Remplacer emailTypes par des templates dynamiques
   const [templates, setTemplates] = useState<any[]>([]);
@@ -432,6 +435,19 @@ Urgence : ${formData.urgency}`
       toast({ title: "Erreur", description: "Impossible de supprimer l'email.", variant: "destructive" });
     }
     setConfirmDeleteEmail({open: false, id: null});
+  };
+
+  // Ajoute cette fonction pour pré-remplir le générateur depuis le ChatBot
+  const handleChatBotToGenerator = (fields: Partial<typeof formData & { body: string }>) => {
+    setShowChatBot(false);
+    setFormData(prev => ({
+      ...prev,
+      recipient: fields.recipient || prev.recipient,
+      subject: fields.subject || prev.subject,
+      company: fields.company || prev.company,
+      context: fields.context || prev.context,
+    }));
+    if (fields.body) setGeneratedEmail(fields.body);
   };
 
   // Sidebar Component
@@ -843,14 +859,10 @@ Urgence : ${formData.urgency}`
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full bg-primary hover:bg-primary/90"
-                  disabled={isGenerating}
-                  size="lg"
-                >
-                  {isGenerating ? "Génération en cours..." : "Générer l'email"}
-                </Button>
+                <div className="flex gap-2 mb-4">
+                  <Button onClick={() => setShowChatBot(true)} variant="outline">Discuter avec l’IA</Button>
+                  <Button onClick={handleGenerate} disabled={isGenerating}>Générer</Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -908,6 +920,7 @@ Urgence : ${formData.urgency}`
           </Card>
         </div>
       </div>
+      <ChatBotModal open={showChatBot} onClose={() => setShowChatBot(false)} onSendToGenerator={handleChatBotToGenerator} />
     </div>
   )
 
@@ -1229,6 +1242,10 @@ Urgence : ${formData.urgency}`
           <main className="flex-1 overflow-auto p-6 bg-background">
             <div className="max-w-7xl mx-auto">{renderView()}</div>
           </main>
+          {/* Widget ChatBot flottant en bas à droite */}
+          <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
+            <ChatBot />
+          </div>
         </SidebarInset>
       </div>
       <Dialog open={confirmDelete.open} onOpenChange={open => !open && setConfirmDelete({open: false, id: null})}>

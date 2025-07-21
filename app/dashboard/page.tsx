@@ -442,10 +442,11 @@ Urgence : ${formData.urgency}`
     setShowChatBot(false);
     setFormData(prev => ({
       ...prev,
-      recipient: fields.recipient || prev.recipient,
-      subject: fields.subject || prev.subject,
-      company: fields.company || prev.company,
-      context: fields.context || prev.context,
+      recipient: fields.recipient ?? '',
+      subject: fields.subject ?? '',
+      company: fields.company ?? '',
+      context: fields.context ?? '',
+      // Ajoute d'autres champs si besoin
     }));
     if (fields.body) setGeneratedEmail(fields.body);
   };

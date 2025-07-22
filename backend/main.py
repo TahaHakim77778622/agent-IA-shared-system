@@ -57,6 +57,7 @@ from api import chatbot  # Import du router chatbot
 app.include_router(emails.router, prefix="/api/emails", tags=["emails"])
 app.include_router(login.router, prefix="/api/login", tags=["login"])
 app.include_router(register.router, prefix="/api/register", tags=["register"])
+app.include_router(register.router, prefix="/api", tags=["register"])
 app.include_router(login_history.router, prefix="/api/login-history", tags=["login-history"])
 app.include_router(generate_email.router, prefix="/api/generate-email", tags=["generate-email"])
 app.include_router(templates.router, prefix="/api/templates", tags=["templates"])

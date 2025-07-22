@@ -32,18 +32,25 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      // Simulation d'envoi d'email
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
+      // Appel réel à l'API backend
+      const response = await fetch("http://localhost:8000/api/forgot-password/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || "Erreur lors de l'envoi de l'email")
+      }
       setEmailSent(true)
       toast({
         title: "Email envoyé",
         description: "Vérifiez votre boîte de réception.",
       })
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erreur",
-        description: "Impossible d'envoyer l'email. Veuillez réessayer.",
+        description: error.message || "Impossible d'envoyer l'email. Veuillez réessayer.",
         variant: "destructive",
       })
     } finally {

@@ -531,16 +531,12 @@ Urgence : ${formData.urgency}`
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" className="w-56">
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push('/profile')}>
             <User className="h-4 w-4 mr-2" />
             Profil
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Settings className="h-4 w-4 mr-2" />
-            Paramètres
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
+          <DropdownMenuItem onClick={() => { logout(); router.push('/login'); }}>
             <LogOut className="h-4 w-4 mr-2" />
             Déconnexion
           </DropdownMenuItem>

@@ -4,11 +4,17 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Loader2, Send, Mail, Eye } from 'lucide-react';
+import { saveAs } from "file-saver";
+import * as XLSX from "xlsx";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { FileText } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatBotModalProps {
   open: boolean;
   onClose: () => void;
-  onSendToGenerator: (fields: Partial<{recipient: string, subject: string, company: string, context: string, body: string}>) => void;
+  onSendToGenerator: (fields: Partial<{recipient: string, subject: string, company: string, context: string, body: string, type: string}>) => void;
 }
 
 const REQUIRED_FIELDS = ['recipient', 'subject', 'context'];
@@ -32,8 +38,9 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
   const [messages, setMessages] = useState<{from: 'user'|'bot', text: string, time: string, emails?: any[]}[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [fields, setFields] = useState<Partial<{recipient: string, subject: string, company: string, context: string, body: string}>>({});
+  const [fields, setFields] = useState<Partial<{recipient: string, subject: string, company: string, context: string, body: string, type: string}>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // Charger l'historique à l'ouverture
   useEffect(() => {
@@ -67,7 +74,7 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
 
   // Extraction intelligente des champs depuis la réponse de l'IA
   const extractFields = (text: string) => {
-    let newFields: Partial<{recipient: string, subject: string, company: string, context: string, body: string}> = {};
+    let newFields: Partial<{recipient: string, subject: string, company: string, context: string, body: string, type: string}> = {};
     // Extraction simple (améliorable avec NLP)
     const recipient = text.match(/destinataire\s*[:=\-]?\s*([\w@.\- ]+)/i);
     if (recipient) newFields.recipient = recipient[1].trim();
@@ -79,6 +86,8 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
     if (company) newFields.company = company[1].trim();
     const body = text.match(/corps\s*[:=\-]?\s*([\s\S]+)/i);
     if (body) newFields.body = body[1].trim();
+    const type = text.match(/type\s*[:=\-]?\s*([\w\s\-]+)/i);
+    if (type) newFields.type = type[1].trim();
     return newFields;
   };
 
@@ -151,8 +160,58 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
       company: email.company,
       context: email.context,
       body: email.body,
+      type: email.type,
     });
     onClose();
+  };
+
+  // Fonctions d'export pour un email
+  const exportOneExcel = (email: any) => {
+    const ws = XLSX.utils.json_to_sheet([{ Sujet: email.subject, Destinataire: email.recipient, Société: email.company, Type: email.type, Date: email.createdAt || "", Contenu: email.body }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Email");
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(new Blob([buf], { type: "application/octet-stream" }), `email-chatbot.xlsx`);
+    toast({
+      title: "Email exporté en Excel",
+      description: `Email de ${email.subject} exporté avec succès.`,
+    });
+  };
+  const exportOneWord = async (email: any) => {
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Sujet: ${email.subject}`, bold: true }),
+              new TextRun("\n"),
+              new TextRun({ text: `Destinataire: ${email.recipient}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Société: ${email.company}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Type: ${email.type}` }),
+              new TextRun("\n\n"),
+              new TextRun({ text: email.body }),
+            ],
+          }),
+        ],
+      }],
+    });
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `email-chatbot.docx`);
+    toast({
+      title: "Email exporté en Word",
+      description: `Email de ${email.subject} exporté avec succès.`,
+    });
+  };
+  const exportOneGmail = (email: any) => {
+    const subject = email.subject;
+    const body = `Destinataire: ${email.recipient}\nSociété: ${email.company}\nType: ${email.type}\n\n${email.body}`;
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    toast({
+      title: "Email ouvert dans Gmail",
+      description: `Email de ${email.subject} ouvert dans Gmail.`,
+    });
   };
 
   return (
@@ -181,14 +240,24 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
                     <div className="text-xs text-muted-foreground mt-1 text-right">{msg.time}</div>
                     {/* Affichage des emails si présents */}
                     {msg.emails && (
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-2 space-y-2 overflow-x-auto">
                         {msg.emails.map((email, idx) => (
-                          <div key={email.id || idx} className="border rounded p-2 bg-zinc-50 dark:bg-zinc-900 flex flex-col gap-1">
+                          <div key={email.id || idx} className="border rounded p-2 bg-zinc-50 dark:bg-zinc-900 flex flex-col gap-1 animate-fade-in">
                             <div className="font-semibold">{email.subject}</div>
                             <div className="text-xs text-muted-foreground">À : {email.recipient} | Type : {email.type} | {email.company}</div>
                             <div className="text-xs line-clamp-2">{email.body}</div>
                             <div className="flex gap-2 mt-1">
                               <Button size="sm" variant="outline" onClick={() => handleReuseEmail(email)}><Mail className="h-4 w-4 mr-1" /> Réutiliser</Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline"><FileText className="h-4 w-4 mr-1" /> Exporter</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="animate-fade-in">
+                                  <DropdownMenuItem onClick={() => exportOneExcel(email)}><FileText className="h-4 w-4 mr-2" /> Excel (.xlsx)</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => exportOneWord(email)}><FileText className="h-4 w-4 mr-2" /> Word (.docx)</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => exportOneGmail(email)}><Mail className="h-4 w-4 mr-2" /> Gmail</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <Button size="sm" variant="ghost" onClick={() => alert(email.body)}><Eye className="h-4 w-4 mr-1" /> Voir</Button>
                             </div>
                           </div>
@@ -198,7 +267,7 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
                     {/* Bouton envoyer vers le générateur si email généré */}
                     {generated && (
                       <div className="mt-2 flex justify-end">
-                        <Button size="sm" variant="outline" onClick={() => onSendToGenerator({ ...fields, body: generated.body, subject: generated.subject })}>
+                        <Button size="sm" variant="outline" onClick={() => onSendToGenerator({ ...fields, body: generated.body, subject: generated.subject, type: fields.type })}>
                           <Mail className="h-4 w-4 mr-1" /> Envoyer vers le générateur
                         </Button>
                       </div>
@@ -214,7 +283,7 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
               </div>
             );
           })}
-          {loading && <div className="flex justify-center items-center"><Loader2 className="animate-spin mr-2" /> L'IA réfléchit…</div>}
+          {loading && <div className="flex justify-center items-center animate-fade-in"><Loader2 className="animate-spin mr-2 text-primary" /> L'IA réfléchit…</div>}
           <div ref={messagesEndRef} />
         </div>
         <form className="flex gap-2 p-6 border-t border-border bg-background" onSubmit={e => { e.preventDefault(); sendMessage(); }}>
@@ -232,7 +301,7 @@ export default function ChatBotModal({ open, onClose, onSendToGenerator }: ChatB
           </Button>
         </form>
         <div className="flex justify-end px-8 pb-6">
-          <Button variant="outline" onClick={() => onSendToGenerator(fields)} disabled={!allFieldsPresent} className="flex gap-1 items-center">
+          <Button variant="outline" onClick={() => onSendToGenerator({ ...fields })} disabled={!allFieldsPresent} className="flex gap-1 items-center">
             <Mail className="h-4 w-4" /> Envoyer vers le générateur
           </Button>
         </div>

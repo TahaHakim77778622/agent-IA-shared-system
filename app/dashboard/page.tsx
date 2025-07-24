@@ -70,6 +70,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import ChatBot from "@/components/ChatBot";
 import ChatBotModal from '@/components/ChatBotModal';
+import { saveAs } from "file-saver";
+import * as XLSX from "xlsx";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { ThemeSwitcher } from "@/components/navbar";
+import { PageTransition } from "@/components/PageTransition";
 
 // Types d'emails
 const emailTypes = [
@@ -438,15 +443,18 @@ Urgence : ${formData.urgency}`
   };
 
   // Ajoute cette fonction pour pré-remplir le générateur depuis le ChatBot
-  const handleChatBotToGenerator = (fields: Partial<typeof formData & { body: string }>) => {
+  const handleChatBotToGenerator = (fields: Partial<typeof formData & { body: string, type: string }>) => {
     setShowChatBot(false);
+    setActiveView("generator");
+    if (fields.type) setSelectedType(fields.type);
     setFormData(prev => ({
       ...prev,
       recipient: fields.recipient ?? '',
       subject: fields.subject ?? '',
       company: fields.company ?? '',
       context: fields.context ?? '',
-      // Ajoute d'autres champs si besoin
+      tone: fields.tone ?? prev.tone ?? 'professionnel',
+      urgency: fields.urgency ?? prev.urgency ?? 'normale',
     }));
     if (fields.body) setGeneratedEmail(fields.body);
   };
@@ -548,6 +556,9 @@ Urgence : ${formData.urgency}`
       </DropdownMenu>
     </SidebarMenuItem>
   </SidebarMenu>
+  <div className="px-4 py-2">
+    <ThemeSwitcher />
+  </div>
 </SidebarFooter>
 
     </Sidebar>
@@ -563,7 +574,7 @@ Urgence : ${formData.urgency}`
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -582,7 +593,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -600,7 +611,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -617,7 +628,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -637,7 +648,7 @@ Urgence : ${formData.urgency}`
 
       {/* Activité récente */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>Emails récents</CardTitle>
             <CardDescription>Vos dernières générations</CardDescription>
@@ -662,7 +673,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>Actions rapides</CardTitle>
             <CardDescription>Accès direct aux fonctionnalités</CardDescription>
@@ -719,7 +730,7 @@ Urgence : ${formData.urgency}`
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Configuration */}
         <div className="space-y-6">
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>1. Type d'email</CardTitle>
               <CardDescription>Sélectionnez le cas d'usage</CardDescription>
@@ -994,7 +1005,7 @@ Urgence : ${formData.urgency}`
         <p className="text-muted-foreground">Tous vos emails générés</p>
       </div>
 
-      <Card>
+      <Card className="animate-fade-in">
         <CardContent className="p-6">
           <div className="flex gap-4 mb-6">
             <div className="flex-1">
@@ -1052,93 +1063,199 @@ Urgence : ${formData.urgency}`
     </div>
   )
 
-  const ExportView = () => (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Export</h1>
-        <p className="text-muted-foreground">Exportez vos emails</p>
-      </div>
+  const ExportView = () => {
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const { toast } = useToast();
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">{emails.length}</div>
-            <p className="text-muted-foreground">Emails totaux</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">{emails.filter(e => e.exported).length}</div>
-            <p className="text-muted-foreground">Exportés</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-orange-600 mb-2">{emails.length}</div>
-            <p className="text-muted-foreground">Total générés</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-purple-600 mb-2">0</div>
-            <p className="text-muted-foreground">Sélectionnés</p>
-          </CardContent>
-        </Card>
-      </div>
+    const toggleSelect = (id: number) => {
+      setSelectedIds(ids => ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]);
+    };
+    const selectAll = () => setSelectedIds(emails.map(e => e.id));
+    const deselectAll = () => setSelectedIds([]);
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {emails.length === 0 ? (
-              <div className="text-center text-muted-foreground">Aucun email généré pour l'instant.</div>
-            ) : (
-              emails.map((item) => (
-                <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <Button variant="ghost" size="sm" className="p-0">
-                    <Square className="h-5 w-5" />
-                  </Button>
-                  <div className="flex-1">
-                    <h4 className="font-medium">{item.subject}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Destinataire : {item.recipient || '—'}<br />
-                      Société : {item.company || '—'}<br />
-                      Type : {item.type || '—'}<br />
-                      Créé le : {item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ''}
-                    </p>
-                  </div>
-                  <Badge className={typeColors[item.type as keyof typeof typeColors] || ''}>
-                    {typeLabels[item.type as keyof typeof typeLabels] || item.type}
-                  </Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Exporter
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Word (.docx)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Code className="h-4 w-4 mr-2" />
-                        HTML (.html)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Mail className="h-4 w-4 mr-2" />
-                        Email (.eml)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))
-            )}
+    // Export Excel groupé
+    const exportExcel = () => {
+      const data = emails.filter(e => selectedIds.includes(e.id)).map(e => ({
+        Sujet: e.subject,
+        Destinataire: e.recipient,
+        Société: e.company,
+        Type: e.type,
+        Date: e.createdAt ? new Date(e.createdAt).toLocaleString("fr-FR") : "",
+        Contenu: e.body,
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Emails");
+      const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      saveAs(new Blob([buf], { type: "application/octet-stream" }), "emails.xlsx");
+      toast({ title: "Export Excel", description: "Fichier Excel téléchargé." });
+    };
+
+    // Export Word groupé
+    const exportWord = async () => {
+      const data = emails.filter(e => selectedIds.includes(e.id));
+      const doc = new Document({
+        sections: [{
+          children: data.map(e => new Paragraph({
+            children: [
+              new TextRun({ text: `Sujet: ${e.subject}`, bold: true }),
+              new TextRun("\n"),
+              new TextRun({ text: `Destinataire: ${e.recipient}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Société: ${e.company}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Type: ${e.type}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Date: ${e.createdAt ? new Date(e.createdAt).toLocaleString("fr-FR") : ""}` }),
+              new TextRun("\n\n"),
+              new TextRun({ text: e.body }),
+              new TextRun("\n\n-----------------------------\n\n"),
+            ],
+          })),
+        }],
+      });
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, "emails.docx");
+      toast({ title: "Export Word", description: "Fichier Word téléchargé." });
+    };
+
+    // Export Gmail (mailto) groupé (ouvre un mailto avec tous les sujets concaténés)
+    const exportGmail = () => {
+      const data = emails.filter(e => selectedIds.includes(e.id));
+      if (data.length === 0) return;
+      const subject = data.map(e => e.subject).join(" | ");
+      const body = data.map(e => `Sujet: ${e.subject}\nDestinataire: ${e.recipient}\nSociété: ${e.company}\nType: ${e.type}\nDate: ${e.createdAt ? new Date(e.createdAt).toLocaleString("fr-FR") : ""}\n\n${e.body}\n\n-----------------------------\n`).join("\n");
+      window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    };
+
+    // Export Excel/Word/Gmail pour un email
+    const exportOneExcel = (email: any) => {
+      const ws = XLSX.utils.json_to_sheet([{ Sujet: email.subject, Destinataire: email.recipient, Société: email.company, Type: email.type, Date: email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : "", Contenu: email.body }]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Email");
+      const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      saveAs(new Blob([buf], { type: "application/octet-stream" }), `email-${email.id}.xlsx`);
+      toast({ title: "Export Excel", description: "Fichier Excel téléchargé." });
+    };
+    const exportOneWord = async (email: any) => {
+      const doc = new Document({
+        sections: [{
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({ text: `Sujet: ${email.subject}`, bold: true }),
+                new TextRun("\n"),
+                new TextRun({ text: `Destinataire: ${email.recipient}` }),
+                new TextRun("\n"),
+                new TextRun({ text: `Société: ${email.company}` }),
+                new TextRun("\n"),
+                new TextRun({ text: `Type: ${email.type}` }),
+                new TextRun("\n"),
+                new TextRun({ text: `Date: ${email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : ""}` }),
+                new TextRun("\n\n"),
+                new TextRun({ text: email.body }),
+              ],
+            }),
+          ],
+        }],
+      });
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `email-${email.id}.docx`);
+      toast({ title: "Export Word", description: "Fichier Word téléchargé." });
+    };
+    const exportOneGmail = (email: any) => {
+      const subject = email.subject;
+      const body = `Destinataire: ${email.recipient}\nSociété: ${email.company}\nType: ${email.type}\nDate: ${email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : ""}\n\n${email.body}`;
+      window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Export</h1>
+            <p className="text-muted-foreground">Exportez vos emails au format Excel, Word ou Gmail</p>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={selectAll}>Tout sélectionner</Button>
+            <Button variant="outline" onClick={deselectAll}>Tout désélectionner</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={selectedIds.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exporter la sélection
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={exportExcel} disabled={selectedIds.length === 0}>
+                  <FileText className="h-4 w-4 mr-2" /> Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportWord} disabled={selectedIds.length === 0}>
+                  <FileText className="h-4 w-4 mr-2" /> Word (.docx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportGmail} disabled={selectedIds.length === 0}>
+                  <Mail className="h-4 w-4 mr-2" /> Gmail
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <Card className="animate-fade-in">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-4 py-2"><input type="checkbox" checked={selectedIds.length === emails.length && emails.length > 0} onChange={e => e.target.checked ? selectAll() : deselectAll()} /></th>
+                    <th className="px-4 py-2">Sujet</th>
+                    <th className="px-4 py-2">Destinataire</th>
+                    <th className="px-4 py-2">Société</th>
+                    <th className="px-4 py-2">Type</th>
+                    <th className="px-4 py-2">Date</th>
+                    <th className="px-4 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emails.map(email => (
+                    <tr key={email.id} className={selectedIds.includes(email.id) ? "bg-primary/10" : ""}>
+                      <td className="px-4 py-2 text-center">
+                        <input type="checkbox" checked={selectedIds.includes(email.id)} onChange={() => toggleSelect(email.id)} />
+                      </td>
+                      <td className="px-4 py-2 font-medium">{email.subject}</td>
+                      <td className="px-4 py-2">{email.recipient}</td>
+                      <td className="px-4 py-2">{email.company}</td>
+                      <td className="px-4 py-2">{email.type}</td>
+                      <td className="px-4 py-2">{email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : ""}</td>
+                      <td className="px-4 py-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Download className="h-4 w-4 mr-2" /> Exporter
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => exportOneExcel(email)}>
+                              <FileText className="h-4 w-4 mr-2" /> Excel (.xlsx)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportOneWord(email)}>
+                              <FileText className="h-4 w-4 mr-2" /> Word (.docx)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportOneGmail(email)}>
+                              <Mail className="h-4 w-4 mr-2" /> Gmail
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const StatsView = () => {
     // Calculer les stats à partir des vrais emails générés
@@ -1154,7 +1271,7 @@ Urgence : ${formData.urgency}`
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Emails par type</CardTitle>
             </CardHeader>
@@ -1175,7 +1292,7 @@ Urgence : ${formData.urgency}`
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Performance mensuelle</CardTitle>
             </CardHeader>
@@ -1193,7 +1310,7 @@ Urgence : ${formData.urgency}`
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Emails totaux</CardTitle>
             </CardHeader>
@@ -1229,70 +1346,80 @@ Urgence : ${formData.urgency}`
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <SidebarInset className="flex-1 flex flex-col">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <SidebarTrigger className="-ml-1" />
-            <div className="flex-1" />
-            <Button variant="ghost" size="sm">
-              <Bell className="h-4 w-4" />
-            </Button>
-          </header>
-          <main className="flex-1 overflow-auto p-6 bg-background">
-            <div className="max-w-7xl mx-auto">{renderView()}</div>
-          </main>
-          {/* Widget ChatBot flottant en bas à droite */}
-          <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
-            <ChatBot />
-          </div>
-        </SidebarInset>
-      </div>
-      <Dialog open={confirmDelete.open} onOpenChange={open => !open && setConfirmDelete({open: false, id: null})}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
-          </DialogHeader>
-          <p>Voulez-vous vraiment supprimer ce template ? Cette action est irréversible.</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete({open: false, id: null})}>Annuler</Button>
-            <Button variant="destructive" onClick={() => { if (confirmDelete.id) handleDeleteTemplate(confirmDelete.id); setConfirmDelete({open: false, id: null}); }}>Supprimer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmDeleteEmail.open} onOpenChange={open => !open && setConfirmDeleteEmail({open: false, id: null})}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
-          </DialogHeader>
-          <p>Voulez-vous vraiment supprimer cet email ? Cette action est irréversible.</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteEmail({open: false, id: null})}>Annuler</Button>
-            <Button variant="destructive" onClick={() => confirmDeleteEmail.id && handleDeleteEmail(confirmDeleteEmail.id)}>Supprimer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!!editEmail} onOpenChange={open => !open && setEditEmail(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modifier l'email</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleUpdateEmail} className="space-y-4">
-            <Input placeholder="Sujet" value={editEmailForm.subject} onChange={e => setEditEmailForm(f => ({ ...f, subject: e.target.value }))} required />
-            <Textarea placeholder="Contenu" value={editEmailForm.body} onChange={e => setEditEmailForm(f => ({ ...f, body: e.target.value }))} required />
-            <Input placeholder="Destinataire" value={editEmailForm.recipient} onChange={e => setEditEmailForm(f => ({ ...f, recipient: e.target.value }))} />
-            <Input placeholder="Type" value={editEmailForm.type} onChange={e => setEditEmailForm(f => ({ ...f, type: e.target.value }))} />
-            <Input placeholder="Société" value={editEmailForm.company} onChange={e => setEditEmailForm(f => ({ ...f, company: e.target.value }))} />
+    <PageTransition>
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <AppSidebar />
+          <SidebarInset className="flex-1 flex flex-col">
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <SidebarTrigger className="-ml-1" />
+              <div className="flex-1" />
+              <Button variant="ghost" size="sm">
+                <Bell className="h-4 w-4" />
+              </Button>
+            </header>
+            <main className="flex-1 overflow-auto p-6 bg-background">
+              <div className="max-w-7xl mx-auto">{renderView()}</div>
+            </main>
+            {/* Widget ChatBot flottant en bas à droite */}
+            <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
+              <ChatBot />
+            </div>
+          </SidebarInset>
+        </div>
+        <Dialog open={confirmDelete.open} onOpenChange={open => !open && setConfirmDelete({open: false, id: null})}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmer la suppression</DialogTitle>
+            </DialogHeader>
+            <p>Voulez-vous vraiment supprimer ce template ? Cette action est irréversible.</p>
             <DialogFooter>
-              <Button variant="outline" type="button" onClick={() => setEditEmail(null)}>Annuler</Button>
-              <Button type="submit">Enregistrer</Button>
+              <Button variant="outline" onClick={() => setConfirmDelete({open: false, id: null})}>Annuler</Button>
+              <Button variant="destructive" onClick={() => { if (confirmDelete.id) handleDeleteTemplate(confirmDelete.id); setConfirmDelete({open: false, id: null}); }}>Supprimer</Button>
             </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </SidebarProvider>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={confirmDeleteEmail.open} onOpenChange={open => !open && setConfirmDeleteEmail({open: false, id: null})}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmer la suppression</DialogTitle>
+            </DialogHeader>
+            <p>Voulez-vous vraiment supprimer cet email ? Cette action est irréversible.</p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmDeleteEmail({open: false, id: null})}>Annuler</Button>
+              <Button variant="destructive" onClick={() => confirmDeleteEmail.id && handleDeleteEmail(confirmDeleteEmail.id)}>Supprimer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={!!editEmail} onOpenChange={open => !open && setEditEmail(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Modifier l'email</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleUpdateEmail} className="space-y-4">
+              <Input placeholder="Sujet" value={editEmailForm.subject} onChange={e => setEditEmailForm(f => ({ ...f, subject: e.target.value }))} required />
+              <Textarea placeholder="Contenu" value={editEmailForm.body} onChange={e => setEditEmailForm(f => ({ ...f, body: e.target.value }))} required />
+              <Input placeholder="Destinataire" value={editEmailForm.recipient} onChange={e => setEditEmailForm(f => ({ ...f, recipient: e.target.value }))} />
+              <Input placeholder="Type" value={editEmailForm.type} onChange={e => setEditEmailForm(f => ({ ...f, type: e.target.value }))} />
+              <Input placeholder="Société" value={editEmailForm.company} onChange={e => setEditEmailForm(f => ({ ...f, company: e.target.value }))} />
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setEditEmail(null)}>Annuler</Button>
+                <Button type="submit">Enregistrer</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        {/* Ajoute un loader global si isGenerating ou loadingTemplates */}
+        {(isGenerating || loadingTemplates) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 animate-fade-in">
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-lg flex flex-col items-center gap-2">
+              <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+              <span className="text-muted-foreground mt-2">Chargement…</span>
+            </div>
+          </div>
+        )}
+      </SidebarProvider>
+    </PageTransition>
   )
   
 }
-

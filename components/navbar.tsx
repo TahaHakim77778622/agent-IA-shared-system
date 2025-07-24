@@ -5,6 +5,78 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Mail, Menu, X, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useToast } from "@/hooks/use-toast"
+
+function ThemeSwitcher() {
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const themeLabel =
+    theme === "system"
+      ? "Système"
+      : theme === "dark"
+      ? "Sombre"
+      : "Clair";
+  const themeIcon =
+    theme === "system" ? (
+      <span className="relative flex items-center">
+        <Sun className="h-5 w-5 text-yellow-500 animate-spin-slow" />
+        <Moon className="h-5 w-5 text-zinc-500 -ml-2 animate-fade-in" />
+      </span>
+    ) : theme === "dark" ? (
+      <Moon className="h-5 w-5 text-zinc-900 dark:text-yellow-400 animate-fade-in" />
+    ) : (
+      <Sun className="h-5 w-5 text-yellow-500 animate-fade-in" />
+    );
+  const handleChange = (value: string) => {
+    setTheme(value);
+    toast({
+      title: `Thème changé`,
+      description: value === "system" ? "Mode système activé" : value === "dark" ? "Mode sombre activé" : "Mode clair activé",
+      duration: 1800,
+    });
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="ml-4 flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary">
+          {themeIcon}
+          <span className="hidden md:inline text-sm">{themeLabel}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleChange("light")}
+          className={theme === "light" ? "bg-primary/10 text-primary font-semibold" : ""}
+          aria-checked={theme === "light"}
+          role="menuitemradio"
+        >
+          ☀️ Clair {theme === "light" && <span className="ml-2">✓</span>}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleChange("dark")}
+          className={theme === "dark" ? "bg-primary/10 text-primary font-semibold" : ""}
+          aria-checked={theme === "dark"}
+          role="menuitemradio"
+        >
+          🌙 Sombre {theme === "dark" && <span className="ml-2">✓</span>}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleChange("system")}
+          className={theme === "system" ? "bg-primary/10 text-primary font-semibold" : ""}
+          aria-checked={theme === "system"}
+          role="menuitemradio"
+        >
+          🖥️ Système {theme === "system" && <span className="ml-2">✓</span>}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export { ThemeSwitcher };
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -42,16 +114,7 @@ export function Navbar() {
             ))}
 
             {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="ml-4"
-            >
-              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+            <ThemeSwitcher />
 
             <Button variant="outline" className="ml-4 bg-transparent" asChild>
               <Link href="/login">Connexion</Link>
@@ -84,15 +147,7 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="flex flex-col space-y-2 pt-4 border-t border-border">
-                <Button
-                  variant="ghost"
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="justify-start"
-                >
-                  <Sun className="h-4 w-4 mr-2 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-4 w-4 ml-2 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  Changer de thème
-                </Button>
+                <ThemeSwitcher />
                 <Button variant="outline" className="w-full bg-transparent" asChild>
                   <Link href="/login">Connexion</Link>
                 </Button>

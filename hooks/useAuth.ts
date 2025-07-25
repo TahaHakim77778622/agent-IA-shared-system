@@ -39,6 +39,21 @@ export function useAuth() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Fonction pour rafraîchir les infos utilisateur (à exposer)
+  const refreshUser = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const res = await fetch("http://127.0.0.1:8000/users/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUser(data);
+    }
+  };
+
   // Connexion : stocke le token et récupère le user
   const login = async (email: string, password: string) => {
     const response = await fetch("http://127.0.0.1:8000/api/login/", {
@@ -69,5 +84,5 @@ export function useAuth() {
     router.push("/login");
   };
 
-  return { user, loading, login, logout };
+  return { user, loading, login, logout, refreshUser };
 } 

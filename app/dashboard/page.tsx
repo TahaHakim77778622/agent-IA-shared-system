@@ -1,6 +1,16 @@
+// app/dashboard/page.tsx
+// --------------------------------------------------
+// Page principale du dashboard utilisateur
+// Permet de générer, gérer, exporter et personnaliser des emails pros avec l'IA
+// Auteur : Karim | Dernière modif : 2025-07-24
+// --------------------------------------------------
+
 "use client"
 
+// --- Imports React et hooks ---
 import { useState, useEffect } from "react"
+
+// --- Imports UI (shadcn/ui) ---
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +19,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+// --- Imports Sidebar (navigation dashboard) ---
 import {
   Sidebar,
   SidebarContent,
@@ -24,39 +36,13 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+
+// --- Imports d'icônes Lucide ---
 import {
-  Mail,
-  Send,
-  Clock,
-  AlertCircle,
-  Calendar,
-  Phone,
-  Copy,
-  Download,
-  Save,
-  RotateCcw,
-  FileText,
-  Code,
-  Search,
-  Filter,
-  Edit,
-  Plus,
-  TestTube,
-  Eye,
-  MoreHorizontal,
-  LogOut,
-  User,
-  Settings,
-  History,
-  Square,
-  Home,
-  BarChart3,
-  Bell,
-  HelpCircle,
-  Zap,
-  CheckCircle,
-  TrendingUp,
+  Mail, Send, Clock, AlertCircle, Calendar, Phone, Copy, Download, Save, RotateCcw, FileText, Code, Search, Filter, Edit, Plus, TestTube, Eye, MoreHorizontal, LogOut, User, Settings, History, Square, Home, BarChart3, Bell, HelpCircle, Zap, CheckCircle, TrendingUp,
 } from "lucide-react"
+
+// --- Hooks personnalisés et utilitaires ---
 import { useToast } from "@/hooks/use-toast"
 import {
   DropdownMenu,
@@ -75,15 +61,16 @@ import * as XLSX from "xlsx";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { ThemeSwitcher } from "@/components/navbar";
 import { PageTransition } from "@/components/PageTransition";
+import jsPDF from "jspdf";
 
-// Types d'emails
+// --- Définition des types d'emails proposés dans le dashboard ---
 const emailTypes = [
   {
-    id: "reclamation",
-    title: "Réclamation",
-    description: "Email de réclamation ou de plainte",
-    icon: AlertCircle,
-    color: "bg-red-500/10 text-red-400 border-red-500/20 hover:border-red-500/40",
+    id: "reclamation", // Identifiant unique du type
+    title: "Réclamation", // Nom affiché
+    description: "Email de réclamation ou de plainte", // Description courte
+    icon: AlertCircle, // Icône associée (Lucide)
+    color: "bg-red-500/10 text-red-400 border-red-500/20 hover:border-red-500/40", // Couleur pour l'UI
   },
   {
     id: "relance",
@@ -122,12 +109,12 @@ const emailTypes = [
   },
 ]
 
-// Navigation items
+// --- Définition des items de navigation du dashboard (sidebar) ---
 const navigationItems = [
   {
-    title: "Vue d'ensemble",
-    icon: Home,
-    id: "overview",
+    title: "Vue d'ensemble", // Titre affiché
+    icon: Home, // Icône associée
+    id: "overview", // Identifiant unique
   },
   {
     title: "Générateur",
@@ -156,6 +143,7 @@ const navigationItems = [
   },
 ]
 
+// --- Couleurs associées à chaque type d'email pour les badges/labels ---
 const typeColors = {
   reclamation: "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400",
   relance: "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400",
@@ -165,6 +153,7 @@ const typeColors = {
   remerciement: "bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-400",
 }
 
+// --- Labels courts pour chaque type d'email (pour UI compacte) ---
 const typeLabels = {
   reclamation: "Réclamation",
   relance: "Relance",
@@ -174,11 +163,12 @@ const typeLabels = {
   remerciement: "Remerciement",
 }
 
+// --- Composant principal du dashboard ---
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
-  const [activeView, setActiveView] = useState("generator")
-  const [selectedType, setSelectedType] = useState("")
-  const [formData, setFormData] = useState({
+  const { user, loading, logout } = useAuth(); // Récupère l'utilisateur connecté et les actions auth
+  const [activeView, setActiveView] = useState("generator") // Vue active (onglet du dashboard)
+  const [selectedType, setSelectedType] = useState("") // Type d'email sélectionné
+  const [formData, setFormData] = useState({ // Données du formulaire de génération d'email
     recipient: "",
     company: "",
     subject: "",
@@ -186,69 +176,81 @@ export default function DashboardPage() {
     tone: "professionnel",
     urgency: "normale",
   })
-  const [generatedEmail, setGeneratedEmail] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const { toast } = useToast()
-  const router = useRouter()
-  const [emails, setEmails] = useState<any[]>([]);
-  const [showChatBot, setShowChatBot] = useState(false);
+  const [generatedEmail, setGeneratedEmail] = useState("") // Email généré par l'IA
+  const [isGenerating, setIsGenerating] = useState(false) // Indique si l'IA est en cours de génération
+  const [searchTerm, setSearchTerm] = useState("") // Terme de recherche pour filtrer les emails/templates
+  const { toast } = useToast() // Hook pour afficher les notifications toast
+  const router = useRouter() // Hook Next.js pour la navigation
+  const [emails, setEmails] = useState<any[]>([]); // Liste des emails générés (historique)
+  const [showChatBot, setShowChatBot] = useState(false); // Affiche ou non le chatbot
 
-  // Remplacer emailTypes par des templates dynamiques
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<any>(null);
-  const [templateForm, setTemplateForm] = useState({ title: "", description: "", type: "", actif: true });
+  // --- Gestion des templates dynamiques ---
+  const [templates, setTemplates] = useState<any[]>([]); // Liste des templates personnalisés
+  const [loadingTemplates, setLoadingTemplates] = useState(false); // Chargement des templates
+  const [showTemplateForm, setShowTemplateForm] = useState(false); // Affiche le formulaire d'ajout/édition de template
+  const [editingTemplate, setEditingTemplate] = useState<any>(null); // Template en cours d'édition
+  const [templateForm, setTemplateForm] = useState({ title: "", description: "", type: "", actif: true }); // Formulaire template
 
-  // Ajoute l'état pour la confirmation de suppression
+  // --- États pour la gestion de la suppression (confirmation modale) ---
   const [confirmDelete, setConfirmDelete] = useState<{open: boolean, id: number|null}>({open: false, id: null});
-
-  // Ajoute l'état pour la confirmation de suppression d'email
   const [confirmDeleteEmail, setConfirmDeleteEmail] = useState<{open: boolean, id: number|null}>({open: false, id: null});
-  // Ajoute l'état pour l'édition d'email
+
+  // --- États pour l'édition d'email ---
   const [editEmail, setEditEmail] = useState<any>(null);
   const [editEmailForm, setEditEmailForm] = useState({ subject: "", body: "", recipient: "", type: "", company: "" });
 
+  // --- Ajout état pour la sauvegarde d'email généré ---
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // --- Ajout état pour la modal Profil ---
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({ first_name: user?.first_name || '', last_name: user?.last_name || '' });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  // --- Fonctions utilitaires pour ouvrir/fermer les formulaires ---
   // Affiche le formulaire pour ajouter un template
   const openAddTemplateForm = () => {
-    setShowTemplateForm(true);
-    setEditingTemplate(null);
-    setTemplateForm({ title: "", description: "", type: "", actif: true });
+    setShowTemplateForm(true); // Ouvre le formulaire
+    setEditingTemplate(null); // Pas d'édition en cours
+    setTemplateForm({ title: "", description: "", type: "", actif: true }); // Réinitialise le formulaire
   };
   // Affiche le formulaire pour éditer un template
   const openEditTemplateForm = (template: any) => {
-    setShowTemplateForm(true);
-    setEditingTemplate(template);
-    setTemplateForm({ title: template.title, description: template.description, type: template.type, actif: template.actif });
+    setShowTemplateForm(true); // Ouvre le formulaire
+    setEditingTemplate(template); // Passe en mode édition
+    setTemplateForm({ title: template.title, description: template.description, type: template.type, actif: template.actif }); // Pré-remplit le formulaire
   };
   // Ferme le formulaire
   const closeTemplateForm = () => {
-    setShowTemplateForm(false);
-    setEditingTemplate(null);
-    setTemplateForm({ title: "", description: "", type: "", actif: true });
+    setShowTemplateForm(false); // Ferme le formulaire
+    setEditingTemplate(null); // Annule l'édition
+    setTemplateForm({ title: "", description: "", type: "", actif: true }); // Réinitialise le formulaire
   };
 
-  // Fetch templates depuis l'API
+  // --- Récupération des templates depuis l'API backend ---
   const fetchTemplates = async () => {
-    setLoadingTemplates(true);
+    setLoadingTemplates(true); // Affiche le loader
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token"); // Récupère le token JWT
       const res = await fetch("http://localhost:8000/api/templates/", {
         headers: token ? { "Authorization": `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Erreur lors de la récupération des templates");
       const data = await res.json();
-      setTemplates(data);
+      setTemplates(data); // Met à jour la liste des templates
     } catch (err) {
-      setTemplates([]);
+      setTemplates([]); // En cas d'erreur, vide la liste
     } finally {
-      setLoadingTemplates(false);
+      setLoadingTemplates(false); // Cache le loader
     }
   };
-  useEffect(() => { fetchTemplates(); }, []);
+  useEffect(() => { fetchTemplates(); }, []); // Appel au chargement du dashboard
 
-  // Ajout ou modification
+  // --- Ajout ou modification d'un template (POST/PUT) ---
   const handleSubmitTemplate = async (e: any) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
@@ -264,14 +266,14 @@ export default function DashboardPage() {
         body: JSON.stringify(templateForm),
       });
       if (!res.ok) throw new Error("Erreur lors de l'enregistrement du template");
-      closeTemplateForm();
-      fetchTemplates();
+      closeTemplateForm(); // Ferme le formulaire
+      fetchTemplates(); // Rafraîchit la liste
       toast({ title: "Succès", description: editingTemplate ? "Template modifié." : "Template ajouté." });
     } catch (err) {
       toast({ title: "Erreur", description: "Impossible d'enregistrer le template.", variant: "destructive" });
     }
   };
-  // Suppression
+  // --- Suppression d'un template ---
   const handleDeleteTemplate = async (id: number) => {
     const token = localStorage.getItem("token");
     try {
@@ -288,13 +290,15 @@ export default function DashboardPage() {
     }
   };
 
+  // --- Redirection si non authentifié ---
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || (!loading && !user)) {
-      router.push("/login");
+      router.push("/login"); // Redirige vers la page de login si pas connecté
     }
   }, [user, loading, router]);
 
+  // --- Récupération des emails générés (historique) depuis l'API ---
   const fetchEmails = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -305,16 +309,18 @@ export default function DashboardPage() {
       });
       if (!res.ok) throw new Error("Erreur lors de la récupération des emails");
       const data = await res.json();
-      setEmails(data);
+      setEmails(data); // Met à jour la liste des emails
     } catch (err) {
-      setEmails([]);
+      setEmails([]); // En cas d'erreur, vide la liste
     }
   };
 
+  // --- Chargement initial de l'historique d'emails ---
   useEffect(() => {
-    fetchEmails();
+    fetchEmails(); // Récupère les emails à l'ouverture du dashboard
   }, []);
 
+  // --- Génération d'email par l'IA (appel API backend) ---
   const handleGenerate = async () => {
     if (!selectedType || !formData.recipient || !formData.context) {
       toast({
@@ -378,6 +384,7 @@ Urgence : ${formData.urgency}`
     }
   }
 
+  // --- Copier l'email généré dans le presse-papiers ---
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedEmail)
     toast({
@@ -386,6 +393,7 @@ Urgence : ${formData.urgency}`
     })
   }
 
+  // --- Déconnexion utilisateur ---
   const handleLogout = () => {
     toast({
       title: "Déconnexion",
@@ -394,6 +402,7 @@ Urgence : ${formData.urgency}`
     router.push("/")
   }
 
+  // --- Mise à jour d'un email existant (édition) ---
   const handleUpdateEmail = async (e: any) => {
     e.preventDefault();
     if (!editEmail) return;
@@ -416,6 +425,7 @@ Urgence : ${formData.urgency}`
     }
   };
 
+  // --- Pré-remplir le formulaire d'édition d'email ---
   const handleEditEmail = (email: any) => {
     setEditEmail(email);
     setEditEmailForm({
@@ -426,6 +436,8 @@ Urgence : ${formData.urgency}`
       company: email.company || ""
     });
   };
+
+  // --- Suppression d'un email ---
   const handleDeleteEmail = async (id: number) => {
     const token = localStorage.getItem("token");
     try {
@@ -442,7 +454,38 @@ Urgence : ${formData.urgency}`
     setConfirmDeleteEmail({open: false, id: null});
   };
 
-  // Ajoute cette fonction pour pré-remplir le générateur depuis le ChatBot
+  // --- Fonction pour sauvegarder l'email généré dans l'historique ---
+  const handleSaveGeneratedEmail = async () => {
+    if (!generatedEmail || isSaved) return;
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8000/api/emails/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          subject: formData.subject || `Email généré par IA`,
+          body: generatedEmail,
+          recipient: formData.recipient,
+          company: formData.company,
+          type: selectedType,
+        }),
+      });
+      if (!res.ok) throw new Error("Erreur lors de la sauvegarde de l'email");
+      setIsSaved(true);
+      fetchEmails();
+      toast({ title: "Succès", description: "Email sauvegardé dans l'historique !" });
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible de sauvegarder l'email.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Pré-remplissage du générateur depuis le ChatBot ---
   const handleChatBotToGenerator = (fields: Partial<typeof formData & { body: string, type: string }>) => {
     setShowChatBot(false);
     setActiveView("generator");
@@ -459,7 +502,7 @@ Urgence : ${formData.urgency}`
     if (fields.body) setGeneratedEmail(fields.body);
   };
 
-  // Sidebar Component
+  // --- Composant Sidebar du dashboard ---
   const AppSidebar = () => (
     <Sidebar className="border-r">
       <SidebarHeader className="border-b border-border">
@@ -539,13 +582,9 @@ Urgence : ${formData.urgency}`
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" className="w-56">
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
             <User className="h-4 w-4 mr-2" />
             Profil
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Settings className="h-4 w-4 mr-2" />
-            Paramètres
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
@@ -564,7 +603,7 @@ Urgence : ${formData.urgency}`
     </Sidebar>
   )
 
-  // Vue d'ensemble
+  // --- Vue d'ensemble du dashboard (OverviewView) ---
   const OverviewView = () => (
     <div className="space-y-6">
       <div>
@@ -572,8 +611,9 @@ Urgence : ${formData.urgency}`
         <p className="text-muted-foreground">Bienvenue dans votre espace ProMail Assistant</p>
       </div>
 
-      {/* Statistiques */}
+      {/* Statistiques principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Emails générés */}
         <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -593,6 +633,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
+        {/* Templates utilisés */}
         <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -611,6 +652,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
+        {/* Temps économisé */}
         <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -628,6 +670,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
+        {/* Taux de succès */}
         <Card className="animate-fade-in">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -646,7 +689,7 @@ Urgence : ${formData.urgency}`
         </Card>
       </div>
 
-      {/* Activité récente */}
+      {/* Activité récente (emails récents) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="animate-fade-in">
           <CardHeader>
@@ -673,6 +716,7 @@ Urgence : ${formData.urgency}`
           </CardContent>
         </Card>
 
+        {/* Actions rapides */}
         <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>Actions rapides</CardTitle>
@@ -719,7 +763,7 @@ Urgence : ${formData.urgency}`
     </div>
   )
 
-  // Vue Générateur
+  // --- Vue Générateur d'emails (GeneratorView) ---
   const GeneratorView = () => (
     <div className="space-y-6">
       <div>
@@ -728,7 +772,7 @@ Urgence : ${formData.urgency}`
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Configuration */}
+        {/* --- Configuration du type d'email --- */}
         <div className="space-y-6">
           <Card className="animate-fade-in">
             <CardHeader>
@@ -760,6 +804,7 @@ Urgence : ${formData.urgency}`
             </CardContent>
           </Card>
 
+          {/* --- Formulaire de personnalisation de l'email --- */}
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-foreground">2. Personnalisez votre email</CardTitle>
@@ -872,7 +917,7 @@ Urgence : ${formData.urgency}`
                 </div>
 
                 <div className="flex gap-2 mb-4">
-                  <Button onClick={() => setShowChatBot(true)} variant="outline">Discuter avec l’IA</Button>
+                  <Button onClick={() => setShowChatBot(true)} variant="outline">Discuter avec l'IA</Button>
                   <Button onClick={handleGenerate} disabled={isGenerating}>Générer</Button>
                 </div>
               </form>
@@ -880,7 +925,7 @@ Urgence : ${formData.urgency}`
           </Card>
         </div>
 
-        {/* Résultat */}
+        {/* --- Résultat de la génération IA --- */}
         <div>
           <Card className="h-full">
             <CardHeader>
@@ -909,14 +954,37 @@ Urgence : ${formData.urgency}`
                       <Copy className="h-4 w-4 mr-2" />
                       Copier
                     </Button>
-                    <Button variant="outline" className="flex-1 sm:flex-none bg-transparent">
-                      <Download className="h-4 w-4 mr-2" />
-                      Télécharger
-                    </Button>
-                    <Button variant="outline" className="flex-1 sm:flex-none bg-transparent">
+                    <Button
+                      variant="outline"
+                      className="flex-1 sm:flex-none bg-transparent"
+                      onClick={handleSaveGeneratedEmail}
+                      disabled={isSaving || isSaved || !generatedEmail}
+                    >
                       <Save className="h-4 w-4 mr-2" />
-                      Sauvegarder
+                      {isSaved ? "Déjà sauvegardé" : isSaving ? "Sauvegarde..." : "Sauvegarder"}
                     </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="flex-1 sm:flex-none bg-transparent">
+                          <Download className="h-4 w-4 mr-2" />
+                          Télécharger
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={exportGeneratedEmailAsEML}>
+                          <Mail className="h-4 w-4 mr-2" /> Email (.eml)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportGeneratedEmailAsWord}>
+                          <FileText className="h-4 w-4 mr-2" /> Word (.docx)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportGeneratedEmailAsPDF}>
+                          <FileText className="h-4 w-4 mr-2" /> PDF (.pdf)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportGeneratedEmailAsExcel}>
+                          <FileText className="h-4 w-4 mr-2" /> Excel (.xlsx)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               ) : (
@@ -932,11 +1000,12 @@ Urgence : ${formData.urgency}`
           </Card>
         </div>
       </div>
+      {/* --- Intégration du ChatBotModal pour assistance IA --- */}
       <ChatBotModal open={showChatBot} onClose={() => setShowChatBot(false)} onSendToGenerator={handleChatBotToGenerator} />
     </div>
   )
 
-  // Remplacer la vue TemplatesView par une version CRUD fiable
+  // --- Vue de gestion des templates (CRUD) ---
   const TemplatesView = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -944,11 +1013,13 @@ Urgence : ${formData.urgency}`
           <h1 className="text-3xl font-bold text-foreground">Templates</h1>
           <p className="text-muted-foreground">Gérez vos modèles d'emails</p>
         </div>
+        {/* Bouton pour ajouter un nouveau template */}
         <Button onClick={() => { setShowTemplateForm(true); setEditingTemplate(null); setTemplateForm({ title: "", description: "", type: "", actif: true }); }}>
           <Plus className="h-4 w-4 mr-2" />
           Nouveau Template
         </Button>
       </div>
+      {/* Formulaire d'ajout/édition de template */}
       {activeView === "templates" && showTemplateForm && (
         <form className="p-4 border rounded-lg bg-muted/10" onSubmit={handleSubmitTemplate}>
           <h2 className="font-semibold mb-2">{editingTemplate ? "Modifier" : "Ajouter"} un template</h2>
@@ -966,6 +1037,7 @@ Urgence : ${formData.urgency}`
           </div>
         </form>
       )}
+      {/* Liste des templates existants */}
       <div className="grid gap-6">
         {loadingTemplates ? <div>Chargement...</div> : templates.length === 0 ? <div>Aucun template.</div> : templates.map((template) => (
           <Card key={template.id}>
@@ -998,6 +1070,7 @@ Urgence : ${formData.urgency}`
     </div>
   )
 
+  // --- Vue historique des emails générés (HistoryView) ---
   const HistoryView = () => (
     <div className="space-y-6">
       <div>
@@ -1027,6 +1100,7 @@ Urgence : ${formData.urgency}`
         </CardContent>
       </Card>
 
+      {/* Liste filtrée des emails générés */}
       <div className="space-y-4">
         {emails
           .filter((item) =>
@@ -1063,10 +1137,12 @@ Urgence : ${formData.urgency}`
     </div>
   )
 
+  // --- Vue d'export des emails (ExportView) ---
   const ExportView = () => {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const { toast } = useToast();
 
+    // Sélectionner/désélectionner un email pour l'export
     const toggleSelect = (id: number) => {
       setSelectedIds(ids => ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]);
     };
@@ -1137,6 +1213,7 @@ Urgence : ${formData.urgency}`
       saveAs(new Blob([buf], { type: "application/octet-stream" }), `email-${email.id}.xlsx`);
       toast({ title: "Export Excel", description: "Fichier Excel téléchargé." });
     };
+    // --- Export d'un email individuel au format Word ---
     const exportOneWord = async (email: any) => {
       const doc = new Document({
         sections: [{
@@ -1163,10 +1240,50 @@ Urgence : ${formData.urgency}`
       saveAs(blob, `email-${email.id}.docx`);
       toast({ title: "Export Word", description: "Fichier Word téléchargé." });
     };
+    // --- Export d'un email individuel vers Gmail (pré-remplissage) ---
     const exportOneGmail = (email: any) => {
       const subject = email.subject;
       const body = `Destinataire: ${email.recipient}\nSociété: ${email.company}\nType: ${email.type}\nDate: ${email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : ""}\n\n${email.body}`;
       window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    };
+
+    // Ajoute la fonction d'export PDF groupé dans ExportView
+    // Export PDF groupé
+    const exportPDF = () => {
+      const doc = new jsPDF();
+      emails.filter(e => selectedIds.includes(e.id)).forEach((email, idx) => {
+        let y = 10;
+        if (idx > 0) {
+          doc.addPage();
+        }
+        doc.setFontSize(14);
+        doc.text(`Sujet: ${email.subject}`, 10, y); y += 10;
+        doc.text(`Destinataire: ${email.recipient}`, 10, y); y += 10;
+        doc.text(`Société: ${email.company}`, 10, y); y += 10;
+        doc.text(`Type: ${email.type}`, 10, y); y += 10;
+        doc.text(`Date: ${email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : ""}`, 10, y); y += 10;
+        doc.text("Contenu:", 10, y); y += 10;
+        doc.setFontSize(12);
+        doc.text(doc.splitTextToSize(email.body, 180), 10, y);
+      });
+      doc.save(`emails-${Date.now()}.pdf`);
+      toast({ title: "Export PDF", description: "Fichier PDF téléchargé." });
+    };
+    // Export PDF individuel
+    const exportOnePDF = (email: any) => {
+      const doc = new jsPDF();
+      let y = 10;
+      doc.setFontSize(14);
+      doc.text(`Sujet: ${email.subject}`, 10, y); y += 10;
+      doc.text(`Destinataire: ${email.recipient}`, 10, y); y += 10;
+      doc.text(`Société: ${email.company}`, 10, y); y += 10;
+      doc.text(`Type: ${email.type}`, 10, y); y += 10;
+      doc.text(`Date: ${email.createdAt ? new Date(email.createdAt).toLocaleString("fr-FR") : ""}`, 10, y); y += 10;
+      doc.text("Contenu:", 10, y); y += 10;
+      doc.setFontSize(12);
+      doc.text(doc.splitTextToSize(email.body, 180), 10, y);
+      doc.save(`email-${email.id}.pdf`);
+      toast({ title: "Export PDF", description: "Fichier PDF téléchargé." });
     };
 
     return (
@@ -1196,10 +1313,14 @@ Urgence : ${formData.urgency}`
                 <DropdownMenuItem onClick={exportGmail} disabled={selectedIds.length === 0}>
                   <Mail className="h-4 w-4 mr-2" /> Gmail
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportPDF} disabled={selectedIds.length === 0}>
+                  <FileText className="h-4 w-4 mr-2" /> PDF (.pdf)
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
+        {/* --- Tableau des emails à exporter --- */}
         <Card className="animate-fade-in">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -1243,6 +1364,9 @@ Urgence : ${formData.urgency}`
                             <DropdownMenuItem onClick={() => exportOneGmail(email)}>
                               <Mail className="h-4 w-4 mr-2" /> Gmail
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportOnePDF(email)}>
+                              <FileText className="h-4 w-4 mr-2" /> PDF (.pdf)
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1257,6 +1381,7 @@ Urgence : ${formData.urgency}`
     );
   };
 
+  // --- Vue statistiques (StatsView) ---
   const StatsView = () => {
     // Calculer les stats à partir des vrais emails générés
     const emailsByType = emails.reduce((acc, email) => {
@@ -1326,6 +1451,7 @@ Urgence : ${formData.urgency}`
     );
   };
 
+  // --- Fonction de rendu de la vue active (onglet) ---
   const renderView = () => {
     switch (activeView) {
       case "overview":
@@ -1344,6 +1470,126 @@ Urgence : ${formData.urgency}`
         return <OverviewView />
     }
   }
+
+  // --- Fonction pour exporter l'email généré au format EML (email) ---
+  const exportGeneratedEmailAsEML = () => {
+    if (!generatedEmail) return;
+    const emlContent = `Subject: ${formData.subject || "Email généré par IA"}\nTo: ${formData.recipient}\n\n${generatedEmail}`;
+    const blob = new Blob([emlContent], { type: "message/rfc822" });
+    saveAs(blob, `email-${Date.now()}.eml`);
+    toast({ title: "Export Email", description: "Fichier .eml téléchargé." });
+  };
+  // --- Fonction pour exporter l'email généré au format Word ---
+  const exportGeneratedEmailAsWord = async () => {
+    if (!generatedEmail) return;
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Sujet: ${formData.subject || "Email généré par IA"}`, bold: true }),
+              new TextRun("\n"),
+              new TextRun({ text: `Destinataire: ${formData.recipient}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Société: ${formData.company}` }),
+              new TextRun("\n"),
+              new TextRun({ text: `Type: ${selectedType}` }),
+              new TextRun("\n\n"),
+              new TextRun({ text: generatedEmail }),
+            ],
+          }),
+        ],
+      }],
+    });
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `email-${Date.now()}.docx`);
+    toast({ title: "Export Word", description: "Fichier Word téléchargé." });
+  };
+  // --- Fonction pour exporter l'email généré au format Excel ---
+  const exportGeneratedEmailAsExcel = () => {
+    if (!generatedEmail) return;
+    const data = [{
+      Sujet: formData.subject || "Email généré par IA",
+      Destinataire: formData.recipient,
+      Société: formData.company,
+      Type: selectedType,
+      Contenu: generatedEmail,
+    }];
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Email");
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(new Blob([buf], { type: "application/octet-stream" }), `email-${Date.now()}.xlsx`);
+    toast({ title: "Export Excel", description: "Fichier Excel téléchargé." });
+  };
+  // --- Fonction pour exporter l'email généré au format PDF ---
+  const exportGeneratedEmailAsPDF = () => {
+    if (!generatedEmail) return;
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text(`Sujet: ${formData.subject || "Email généré par IA"}`, 10, 10);
+    doc.text(`Destinataire: ${formData.recipient}`, 10, 20);
+    doc.text(`Société: ${formData.company}`, 10, 30);
+    doc.text(`Type: ${selectedType}`, 10, 40);
+    doc.text("Contenu:", 10, 50);
+    doc.setFontSize(12);
+    doc.text(doc.splitTextToSize(generatedEmail, 180), 10, 60);
+    doc.save(`email-${Date.now()}.pdf`);
+    toast({ title: "Export PDF", description: "Fichier PDF téléchargé." });
+  };
+
+  // --- Fonction pour mettre à jour le nom/prénom ---
+  const handleUpdateProfile = async (e: any) => {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8000/api/users/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ first_name: profileForm.first_name, last_name: profileForm.last_name }),
+      });
+      if (!res.ok) throw new Error("Erreur lors de la mise à jour du profil");
+      toast({ title: "Profil mis à jour", description: "Votre nom a été modifié." });
+      setShowProfileModal(false);
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible de modifier le profil.", variant: "destructive" });
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  // --- Fonction pour changer le mot de passe ---
+  const handleUpdatePassword = async (e: any) => {
+    e.preventDefault();
+    if (passwordForm.new !== passwordForm.confirm) {
+      toast({ title: "Erreur", description: "Les mots de passe ne correspondent pas.", variant: "destructive" });
+      return;
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8000/api/users/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ current_password: passwordForm.current, new_password: passwordForm.new }),
+      });
+      if (!res.ok) throw new Error("Erreur lors du changement de mot de passe");
+      toast({ title: "Mot de passe changé", description: "Votre mot de passe a été modifié." });
+      setShowPasswordModal(false);
+      setPasswordForm({ current: '', new: '', confirm: '' });
+    } catch (err) {
+      toast({ title: "Erreur", description: "Impossible de changer le mot de passe.", variant: "destructive" });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   return (
     <PageTransition>

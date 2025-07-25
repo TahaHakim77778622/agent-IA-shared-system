@@ -53,6 +53,7 @@ from api import emails, login, register, login_history
 from api import generate_email  # Import du nouveau router
 from api import templates  # Import du router templates
 from api import chatbot  # Import du router chatbot
+from api.forgot_password import router as forgot_password_router
 
 app.include_router(emails.router, prefix="/api/emails", tags=["emails"])
 app.include_router(login.router, prefix="/api/login", tags=["login"])
@@ -61,6 +62,7 @@ app.include_router(login_history.router, prefix="/api/login-history", tags=["log
 app.include_router(generate_email.router, prefix="/api/generate-email", tags=["generate-email"])
 app.include_router(templates.router, prefix="/api/templates", tags=["templates"])
 app.include_router(chatbot.router, prefix="/api/chatbot", tags=["chatbot"])
+app.include_router(forgot_password_router, prefix="/api")
 
 # Route racine
 @app.get("/")

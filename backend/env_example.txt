@@ -14,3 +14,6 @@ HUGGINGFACE_API_KEY=hf_votre_token_ici
 
 # Clé API Cohere pour le chatbot IA
 COHERE_API_KEY=sk-xxxxxxx 
+
+GMAIL_USER=ton.email@gmail.com
+GMAIL_PASS=ton_mot_de_passe_application_gmail 

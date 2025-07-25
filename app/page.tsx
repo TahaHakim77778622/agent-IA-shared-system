@@ -1,3 +1,10 @@
+// app/page.tsx
+// --------------------------------------------------
+// Page d'accueil de ProMail Assistant
+// Présente le produit, ses avantages, ses fonctionnalités et des témoignages
+// Auteur : Karim | Dernière modif : 2025-07-24
+// --------------------------------------------------
+
 "use client"
 
 import { Button } from "@/components/ui/button"
@@ -9,27 +16,38 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { PageTransition } from "@/components/PageTransition";
 
+/**
+ * Composant principal de la page d'accueil
+ * Affiche le hero, les étapes, les fonctionnalités, les avantages, les témoignages et le CTA final
+ */
 export default function HomePage() {
   return (
+    // Animation de transition de page (fade/slide)
     <PageTransition>
+      {/* Barre de navigation principale */}
       <Navbar />
       <div className="bg-background">
-        {/* Hero Section */}
+        {/* --- Hero Section --- */}
+        {/* Présentation rapide du produit et call-to-action */}
         <section className="bg-gradient-to-br from-background via-background to-muted/20 py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
+              {/* Badge nouveauté */}
               <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
                 <Sparkles className="h-4 w-4 mr-1" />
                 Nouveau : IA GPT-4 intégrée
               </Badge>
+              {/* Titre principal */}
               <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
                 Rédigez vos emails pros
                 <span className="text-primary"> en quelques clics</span>
               </h1>
+              {/* Slogan */}
               <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
                 Notre assistant IA vous aide à générer des emails clairs, professionnels et adaptés à chaque situation.
                 Gagnez du temps et harmonisez votre communication.
               </p>
+              {/* Boutons d'action */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-3" asChild>
                   <Link href="/login">
@@ -45,7 +63,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Comment ça marche */}
+        {/* --- Section "Comment ça marche" --- */}
+        {/* Présente les 3 étapes d'utilisation */}
         <section className="py-20 bg-muted/30">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -56,6 +75,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
+              {/* Etape 1 */}
               <div className="text-center">
                 <div className="bg-primary w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Target className="h-8 w-8 text-primary-foreground" />
@@ -65,7 +85,7 @@ export default function HomePage() {
                   Créez votre compte et accédez à votre tableau de bord personnalisé avec tous les outils.
                 </p>
               </div>
-
+              {/* Etape 2 */}
               <div className="text-center">
                 <div className="bg-green-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Users className="h-8 w-8 text-white" />
@@ -75,7 +95,7 @@ export default function HomePage() {
                   Sélectionnez parmi nos templates : réclamation, relance, rendez-vous, commercial, et bien plus.
                 </p>
               </div>
-
+              {/* Etape 3 */}
               <div className="text-center">
                 <div className="bg-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Zap className="h-8 w-8 text-white" />
@@ -89,7 +109,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Fonctionnalités */}
+        {/* --- Section Fonctionnalités --- */}
+        {/* Présente les modules clés de l'app */}
         <section className="py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -100,6 +121,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Liste des fonctionnalités principales */}
               {[
                 {
                   title: "Générateur IA",

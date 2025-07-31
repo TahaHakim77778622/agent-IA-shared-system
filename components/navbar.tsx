@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
+import AnimatedLogo from "./AnimatedLogo"
 
 function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
@@ -92,14 +93,11 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="bg-primary p-2 rounded-lg">
-              <Mail className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <span className="text-xl font-bold text-foreground">ProMail Assistant</span>
-            </div>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2">
+              <AnimatedLogo size="sm" showText={true} />
+            </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
@@ -112,6 +110,9 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <Link href="/roadmap" className="text-muted-foreground hover:text-primary font-medium transition-colors">
+              Roadmap
+            </Link>
 
             {/* Theme Toggle */}
             <ThemeSwitcher />
@@ -146,6 +147,13 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                href="/roadmap"
+                className="text-muted-foreground hover:text-primary font-medium py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                Roadmap
+              </Link>
               <div className="flex flex-col space-y-2 pt-4 border-t border-border">
                 <ThemeSwitcher />
                 <Button variant="outline" className="w-full bg-transparent" asChild>

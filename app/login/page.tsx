@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { AlertCircle, Wifi, Shield } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
@@ -23,17 +24,36 @@ export default function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [errorType, setErrorType] = useState<'auth' | 'network' | 'validation' | null>(null)
   const router = useRouter()
   const { toast } = useToast()
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+    setErrorType(null)
 
     if (!formData.email || !formData.password) {
+      setError("Veuillez remplir tous les champs obligatoires.")
+      setErrorType('validation')
       toast({
         title: "Champs requis",
         description: "Veuillez remplir tous les champs.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validation du format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError("Veuillez saisir une adresse email valide.")
+      setErrorType('validation')
+      toast({
+        title: "Format email invalide",
+        description: "Veuillez saisir une adresse email valide.",
         variant: "destructive",
       })
       return
@@ -49,9 +69,36 @@ export default function LoginPage() {
       });
       router.push("/dashboard");
     } catch (error: any) {
+      // Gestion des différents types d'erreurs
+      let errorMessage = "Une erreur inattendue s'est produite."
+      let errorTitle = "Erreur de connexion"
+      
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        errorMessage = "Email ou mot de passe incorrect. Veuillez vérifier vos identifiants."
+        errorTitle = "Identifiants incorrects"
+        setErrorType('auth')
+      } else if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+        errorMessage = "Compte non trouvé. Vérifiez votre adresse email ou créez un nouveau compte."
+        errorTitle = "Compte introuvable"
+        setErrorType('auth')
+      } else if (error.message?.includes('500') || error.message?.includes('Internal Server Error')) {
+        errorMessage = "Erreur serveur. Veuillez réessayer dans quelques instants."
+        errorTitle = "Erreur serveur"
+        setErrorType('network')
+      } else if (error.message?.includes('Network') || error.message?.includes('fetch')) {
+        errorMessage = "Problème de connexion. Vérifiez votre connexion internet et réessayez."
+        errorTitle = "Erreur de connexion"
+        setErrorType('network')
+      } else if (error.message) {
+        errorMessage = error.message
+        setErrorType('auth')
+      }
+      
+      setError(errorMessage)
+      
       toast({
-        title: "Erreur de connexion",
-        description: error.message || "Email ou mot de passe incorrect.",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -89,6 +136,54 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Affichage des erreurs */}
+              {error && (
+                <div className={`p-4 rounded-lg border ${
+                  errorType === 'auth' 
+                    ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-400' 
+                    : errorType === 'network' 
+                    ? 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/20 dark:border-orange-800 dark:text-orange-400'
+                    : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950/20 dark:border-yellow-800 dark:text-yellow-400'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {errorType === 'auth' && <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />}
+                      {errorType === 'network' && <Wifi className="h-5 w-5 text-orange-600 dark:text-orange-400" />}
+                      {errorType === 'validation' && <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">
+                        {errorType === 'auth' && 'Erreur d\'authentification'}
+                        {errorType === 'network' && 'Erreur de connexion'}
+                        {errorType === 'validation' && 'Erreur de validation'}
+                      </h4>
+                      <p className="text-sm leading-relaxed">{error}</p>
+                      {errorType === 'auth' && (
+                        <div className="mt-3 text-xs">
+                          <p className="mb-1">Suggestions :</p>
+                          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                            <li>Vérifiez que votre email est correct</li>
+                            <li>Assurez-vous que votre mot de passe est exact</li>
+                            <li>Vérifiez que les majuscules/minuscules sont correctes</li>
+                            <li>Si vous avez oublié votre mot de passe, utilisez la récupération</li>
+                          </ul>
+                        </div>
+                      )}
+                      {errorType === 'network' && (
+                        <div className="mt-3 text-xs">
+                          <p className="mb-1">Suggestions :</p>
+                          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                            <li>Vérifiez votre connexion internet</li>
+                            <li>Essayez de rafraîchir la page</li>
+                            <li>Réessayez dans quelques instants</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">
                   Adresse email
@@ -154,8 +249,28 @@ export default function LoginPage() {
                 </Link>
               </div>
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading} size="lg">
-                {isLoading ? "Connexion en cours..." : "Se connecter"}
+              <Button 
+                type="submit" 
+                className={`w-full ${
+                  errorType === 'auth' 
+                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                    : errorType === 'network' 
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                    : errorType === 'validation' 
+                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                    : 'bg-primary hover:bg-primary/90'
+                }`}
+                disabled={isLoading} 
+                size="lg"
+              >
+                {isLoading 
+                  ? "Connexion en cours..." 
+                  : errorType === 'auth' 
+                  ? "Réessayer la connexion"
+                  : errorType === 'network' 
+                  ? "Réessayer"
+                  : "Se connecter"
+                }
               </Button>
             </form>
 

@@ -1,58 +1,45 @@
 import Link from "next/link"
-import { Mail, Twitter, Linkedin, Github } from "lucide-react"
+import AnimatedLogo from "./AnimatedLogo"
+import { Mail, Github, Twitter, Linkedin } from "lucide-react"
 
 export function Footer() {
   return (
-    <footer className="bg-muted/50 border-t border-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Logo et slogan */}
+          {/* Logo et description */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="bg-primary p-2 rounded-lg">
-                <Mail className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">ProMail Assistant</span>
+            <div className="mb-4">
+              <AnimatedLogo size="md" showText={true} />
             </div>
             <p className="text-muted-foreground mb-4 max-w-md">
-              Boostez vos emails professionnels grâce à l'IA. Rédigez des emails clairs, professionnels et adaptés à
-              chaque situation en quelques clics.
+              Révolutionnez vos emails professionnels avec l'intelligence artificielle. 
+              Créez des emails parfaits en quelques secondes.
             </p>
-            <div className="flex space-x-4">
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Twitter className="h-5 w-5" />
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Linkedin className="h-5 w-5" />
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Github className="h-5 w-5" />
-              </Link>
-            </div>
           </div>
 
           {/* Liens rapides */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-foreground">Liens rapides</h3>
+            <h3 className="font-semibold mb-4">Liens rapides</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
                   Accueil
                 </Link>
               </li>
               <li>
-                <Link href="/use-cases" className="text-muted-foreground hover:text-primary transition-colors">
-                  Cas d'usage
+                <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                  À propos
                 </Link>
               </li>
               <li>
-                <Link href="/templates" className="text-muted-foreground hover:text-primary transition-colors">
-                  Templates
+                <Link href="/roadmap" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Roadmap
                 </Link>
               </li>
               <li>
-                <Link href="/history" className="text-muted-foreground hover:text-primary transition-colors">
-                  Historique
+                <Link href="/login" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Connexion
                 </Link>
               </li>
             </ul>

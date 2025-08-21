@@ -17,13 +17,23 @@ export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const [editMode, setEditMode] = useState(false);
-  const [profileForm, setProfileForm] = useState({ first_name: user?.first_name || '', last_name: user?.last_name || '' });
+  const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '' });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Mettre à jour le formulaire quand l'utilisateur change
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        first_name: user.first_name || '',
+        last_name: user.last_name || ''
+      });
+    }
+  }, [user]);
 
   // Mise à jour du nom/prénom
   const handleUpdateProfile = async (e: any) => {
@@ -37,16 +47,32 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ first_name: profileForm.first_name, last_name: profileForm.last_name }),
+        body: JSON.stringify({ 
+          first_name: profileForm.first_name, 
+          last_name: profileForm.last_name 
+        }),
       });
-      if (!res.ok) throw new Error("Erreur lors de la mise à jour du profil");
-      toast({ title: "Profil mis à jour", description: "Votre nom a été modifié." });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Erreur lors de la mise à jour du profil");
+      }
+      
+      const result = await res.json();
+      toast({ title: "Profil mis à jour", description: "Votre nom a été modifié avec succès." });
       setEditMode(false);
       setProfileSuccess(true);
-      await refreshUser(); // Rafraîchir le contexte utilisateur global
+      
+      // Rafraîchir le contexte utilisateur global
+      await refreshUser();
+      
       setTimeout(() => setProfileSuccess(false), 2000);
-    } catch (err) {
-      toast({ title: "Erreur", description: "Impossible de modifier le profil.", variant: "destructive" });
+    } catch (err: any) {
+      toast({ 
+        title: "Erreur", 
+        description: err.message || "Impossible de modifier le profil.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -68,17 +94,32 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ current_password: passwordForm.current, new_password: passwordForm.new }),
+        body: JSON.stringify({ 
+          current_password: passwordForm.current, 
+          new_password: passwordForm.new 
+        }),
       });
-      if (!res.ok) throw new Error("Erreur lors du changement de mot de passe");
-      toast({ title: "Mot de passe changé", description: "Votre mot de passe a été modifié." });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Erreur lors du changement de mot de passe");
+      }
+      
+      toast({ title: "Mot de passe changé", description: "Votre mot de passe a été modifié avec succès." });
       setShowPassword(false);
       setPasswordForm({ current: '', new: '', confirm: '' });
       setPasswordSuccess(true);
-      await refreshUser(); // Rafraîchir le contexte utilisateur global
+      
+      // Rafraîchir le contexte utilisateur global
+      await refreshUser();
+      
       setTimeout(() => setPasswordSuccess(false), 2000);
-    } catch (err) {
-      toast({ title: "Erreur", description: "Impossible de changer le mot de passe.", variant: "destructive" });
+    } catch (err: any) {
+      toast({ 
+        title: "Erreur", 
+        description: err.message || "Impossible de changer le mot de passe.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -108,11 +149,23 @@ export default function ProfilePage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="prenom">Prénom</Label>
-              <Input id="prenom" placeholder="Votre prénom" value={editMode ? profileForm.first_name : user?.first_name || ''} disabled={!editMode} onChange={e => setProfileForm(f => ({ ...f, first_name: e.target.value }))} />
+              <Input 
+                id="prenom" 
+                placeholder="Votre prénom" 
+                value={editMode ? profileForm.first_name : user?.first_name || ''} 
+                disabled={!editMode} 
+                onChange={e => setProfileForm(f => ({ ...f, first_name: e.target.value }))} 
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="nom">Nom</Label>
-              <Input id="nom" placeholder="Votre nom" value={editMode ? profileForm.last_name : user?.last_name || ''} disabled={!editMode} onChange={e => setProfileForm(f => ({ ...f, last_name: e.target.value }))} />
+              <Input 
+                id="nom" 
+                placeholder="Votre nom" 
+                value={editMode ? profileForm.last_name : user?.last_name || ''} 
+                disabled={!editMode} 
+                onChange={e => setProfileForm(f => ({ ...f, last_name: e.target.value }))} 
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -120,10 +173,25 @@ export default function ProfilePage() {
             </div>
             <div className="flex gap-2 mt-4">
               {editMode ? (
-                <Button onClick={handleUpdateProfile} disabled={isUpdatingProfile} className="gap-2">
-                  <Save className="h-4 w-4" />
-                  {isUpdatingProfile ? "Enregistrement..." : "Enregistrer"}
-                </Button>
+                <>
+                  <Button onClick={handleUpdateProfile} disabled={isUpdatingProfile} className="gap-2">
+                    <Save className="h-4 w-4" />
+                    {isUpdatingProfile ? "Enregistrement..." : "Enregistrer"}
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setEditMode(false);
+                      setProfileForm({
+                        first_name: user?.first_name || '',
+                        last_name: user?.last_name || ''
+                      });
+                    }} 
+                    variant="outline" 
+                    className="gap-2"
+                  >
+                    Annuler
+                  </Button>
+                </>
               ) : (
                 <Button onClick={() => setEditMode(true)} variant="outline" className="gap-2">
                   <User className="h-4 w-4" /> Modifier le nom
@@ -143,19 +211,52 @@ export default function ProfilePage() {
               <form onSubmit={handleUpdatePassword} className="space-y-4 animate-fade-in">
                 <div>
                   <Label htmlFor="current">Mot de passe actuel</Label>
-                  <Input id="current" type="password" placeholder="Votre mot de passe actuel" value={passwordForm.current} onChange={e => setPasswordForm(f => ({ ...f, current: e.target.value }))} required />
+                  <Input 
+                    id="current" 
+                    type="password" 
+                    placeholder="Votre mot de passe actuel" 
+                    value={passwordForm.current} 
+                    onChange={e => setPasswordForm(f => ({ ...f, current: e.target.value }))} 
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="new">Nouveau mot de passe</Label>
-                  <Input id="new" type="password" placeholder="Nouveau mot de passe" value={passwordForm.new} onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))} required />
+                  <Input 
+                    id="new" 
+                    type="password" 
+                    placeholder="Nouveau mot de passe" 
+                    value={passwordForm.new} 
+                    onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))} 
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="confirm">Confirmer le nouveau mot de passe</Label>
-                  <Input id="confirm" type="password" placeholder="Confirmez le nouveau mot de passe" value={passwordForm.confirm} onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))} required />
+                  <Input 
+                    id="confirm" 
+                    type="password" 
+                    placeholder="Confirmez le nouveau mot de passe" 
+                    value={passwordForm.confirm} 
+                    onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))} 
+                    required 
+                  />
                 </div>
-                <Button type="submit" disabled={isUpdatingPassword} className="gap-2">
-                  <KeyRound className="h-4 w-4" /> {isUpdatingPassword ? "Changement..." : "Changer le mot de passe"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={isUpdatingPassword} className="gap-2">
+                    <KeyRound className="h-4 w-4" /> {isUpdatingPassword ? "Changement..." : "Changer le mot de passe"}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={() => {
+                      setShowPassword(false);
+                      setPasswordForm({ current: '', new: '', confirm: '' });
+                    }} 
+                    variant="outline"
+                  >
+                    Annuler
+                  </Button>
+                </div>
                 {passwordSuccess && (
                   <div className="flex items-center gap-2 text-green-600 text-sm mt-2 animate-fade-in">
                     <CheckCircle className="h-4 w-4" /> Mot de passe modifié

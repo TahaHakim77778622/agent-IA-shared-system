@@ -1,4 +1,4 @@
-# Zabba - Application de Gestion d'Emails
+# TAHA - Application de Gestion d'Emails
 
 Une application complète de gestion d'emails avec un frontend Next.js et un backend FastAPI.
 
@@ -22,7 +22,7 @@ Une application complète de gestion d'emails avec un frontend Next.js et un bac
 ## 📁 Structure du Projet
 
 ```
-zabba/
+taha/
 ├── app/                    # Frontend Next.js
 │   ├── api/               # Routes API Next.js
 │   ├── dashboard/         # Page dashboard
@@ -169,8 +169,8 @@ npm run build
 ### Backend (Docker)
 ```bash
 cd backend
-docker build -t zabba-backend .
-docker run -p 8000:8000 zabba-backend
+docker build -t taha-backend .
+docker run -p 8000:8000 taha-backend
 ```
 
 ## 🤝 Contribution

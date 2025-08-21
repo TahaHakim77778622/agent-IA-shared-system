@@ -24,6 +24,31 @@ def get_user_by_email(db: Session, email: str):
 def get_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
+def update_user(db: Session, user_id: int, user_update):
+    db_user = get_user(db, user_id)
+    if not db_user:
+        return None
+    
+    update_data = user_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_user, field, value)
+    
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def update_user_password(db: Session, user_id: int, new_password: str):
+    db_user = get_user(db, user_id)
+    if not db_user:
+        return None
+    
+    hashed_password = get_password_hash(new_password)
+    db_user.password = hashed_password
+    
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
 # CRUD pour les emails
 def create_email(db: Session, email: EmailCreate, user_id: int):
     db_email = Email(**email.dict(), userId=user_id)

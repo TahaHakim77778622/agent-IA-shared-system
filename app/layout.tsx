@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClientOnly } from "@/components/ClientOnly";
-import { setupErrorHandling, createApiInterceptor } from "@/lib/logger";
+import { AuthProvider } from "@/hooks/useAuth";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,12 +38,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Configuration du monitoring côté client
-  if (typeof window !== 'undefined') {
-    setupErrorHandling()
-    createApiInterceptor()
-  }
-
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
@@ -71,9 +65,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ClientOnly>
-            {children}
-          </ClientOnly>
+          <AuthProvider>
+            <ClientOnly>
+              {children}
+            </ClientOnly>
+          </AuthProvider>
         </ThemeProvider>
         
         {/* Service Worker Registration */}

@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Email Management API",
+    title="TAHA Email Management API",
     version="1.0.0",
     description="API pour la gestion des emails et l'historique de connexion utilisateur."
 )
@@ -54,6 +54,7 @@ from api import generate_email  # Import du nouveau router
 from api import templates  # Import du router templates
 from api import chatbot  # Import du router chatbot
 from api.forgot_password import router as forgot_password_router
+from api import users  # Import du router users
 
 app.include_router(emails.router, prefix="/api/emails", tags=["emails"])
 app.include_router(login.router, prefix="/api/login", tags=["login"])
@@ -63,12 +64,9 @@ app.include_router(generate_email.router, prefix="/api/generate-email", tags=["g
 app.include_router(templates.router, prefix="/api/templates", tags=["templates"])
 app.include_router(chatbot.router, prefix="/api/chatbot", tags=["chatbot"])
 app.include_router(forgot_password_router, prefix="/api")
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 # Route racine
 @app.get("/")
 def root():
-    return {"message": "Bienvenue sur l'API Email Management!"}
-
-@app.get("/users/me", response_model=UserSchema)
-def read_users_me(current_user: User = Depends(get_current_user)):
-    return current_user 
+    return {"message": "Bienvenue sur l'API TAHA Email Management!"} 

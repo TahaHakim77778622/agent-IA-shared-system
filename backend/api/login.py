@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from database import get_db
 from auth import authenticate_user, create_access_token
 from crud import record_login
-from schemas import Token
+from schemas import Token, UserLogin
 from config import settings
 import logging
 
@@ -13,10 +12,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(user_data: UserLogin, db: Session = Depends(get_db)):
     """Connexion utilisateur avec enregistrement automatique"""
     try:
-        user = authenticate_user(db, form_data.username, form_data.password)
+        user = authenticate_user(db, user_data.email, user_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

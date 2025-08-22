@@ -10,7 +10,7 @@ load_dotenv()
 
 class Settings:
     # Base de données (forcer MySQL+pymysql)
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+pymysql://root:password@localhost:3306/agent_db")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+pymysql://root:password@localhost:3306/taha_db")
     
     # JWT
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
@@ -30,7 +30,7 @@ class Settings:
     ]
     
     # Application
-    APP_NAME: str = "Email Management API"
+    APP_NAME: str = "TAHA Email Management API"
     APP_VERSION: str = "1.0.0"
     APP_DESCRIPTION: str = "API de gestion des emails avec authentification JWT"
     

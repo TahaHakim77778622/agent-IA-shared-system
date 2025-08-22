@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "my-v0-project",
+  "name": "taha-email-assistant",
   "version": "0.1.0",
   "private": true,
   "scripts": {

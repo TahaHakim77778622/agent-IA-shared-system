@@ -178,6 +178,7 @@ const typeLabels = {
 // --- Composant principal du dashboard ---
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth(); // Récupère l'utilisateur connecté et les actions auth
+  const logger = useLogger(); // Hook pour le logging
   const [activeView, setActiveView] = useState("generator") // Vue active (onglet du dashboard)
   const [selectedType, setSelectedType] = useState("") // Type d'email sélectionné
   const [formData, setFormData] = useState({ // Données du formulaire de génération d'email
@@ -441,21 +442,51 @@ export default function DashboardPage() {
 
   // --- Génération d'email par l'IA (appel API backend) ---
   const handleGenerate = async () => {
+    console.log("🚀 Début de la génération d'email");
+    console.log("📋 Données du formulaire:", formData);
+    console.log("🎯 Type sélectionné:", selectedType);
+    console.log("✅ Consentement IA:", aiConsent.aiGeneration);
+    
     // Vérifier le consentement IA
     if (!checkAiConsent()) {
+      console.log("❌ Consentement IA refusé");
       return;
     }
     
-    if (!selectedType || !formData.recipient || !formData.context) {
+    // Validation des champs obligatoires
+    if (!selectedType) {
       toast({
-        title: "Informations manquantes",
-        description: "Veuillez remplir tous les champs obligatoires.",
+        title: "Type d'email requis",
+        description: "Veuillez sélectionner un type d'email.",
         variant: "destructive",
       })
-      return
+      console.log("❌ Type d'email manquant");
+      return;
+    }
+    
+    if (!formData.recipient) {
+      toast({
+        title: "Destinataire requis",
+        description: "Veuillez saisir le destinataire de l'email.",
+        variant: "destructive",
+      })
+      console.log("❌ Destinataire manquant");
+      return;
+    }
+    
+    if (!formData.context) {
+      toast({
+        title: "Contexte requis",
+        description: "Veuillez saisir le contexte de l'email.",
+        variant: "destructive",
+      })
+      console.log("❌ Contexte manquant");
+      return;
     }
 
     setIsGenerating(true)
+    console.log("⏳ Génération en cours...");
+    
     logAccess('EMAIL_GENERATION_STARTED', true, { 
       type: selectedType, 
       recipient: formData.recipient,
@@ -463,44 +494,61 @@ export default function DashboardPage() {
     });
 
     // Construction du prompt pour l'IA
-    const prompt = `Rédige un email de type ${selectedType} à ${formData.recipient}${formData.company ? ` de l'entreprise ${formData.company}` : ''}.
+    const prompt = `Rédige un email professionnel de type ${selectedType} à ${formData.recipient}${formData.company ? ` de l'entreprise ${formData.company}` : ''}.
 Contexte : ${formData.context}
 Ton : ${formData.tone}
-Urgence : ${formData.urgency}`
+Urgence : ${formData.urgency}
+
+L'email doit être professionnel, clair et adapté au contexte.`
+
+    console.log("📝 Prompt généré:", prompt);
 
     try {
       const token = localStorage.getItem("token");
+      console.log("🔑 Token présent:", !!token);
+      
+      const requestBody = {
+        prompt,
+        subject: formData.subject || `Email ${selectedType} - ${formData.recipient}`,
+        type: selectedType,
+        recipient: formData.recipient,
+        company: formData.company,
+      };
+      
+      console.log("📤 Envoi de la requête:", requestBody);
+      
       const response = await fetch("http://localhost:8000/api/generate-email/generate-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          prompt,
-          subject: formData.subject || `Email généré par IA`,
-          type: selectedType,
-          recipient: formData.recipient,
-          company: formData.company,
-        }),
+        body: JSON.stringify(requestBody),
       })
+
+      console.log("📥 Réponse reçue:", response.status, response.statusText);
 
       if (!response.ok) {
         let errorMsg = "Erreur lors de la génération";
         try {
           const errData = await response.json();
           errorMsg = errData.detail || errorMsg;
-        } catch {}
+          console.log("❌ Erreur détaillée:", errData);
+        } catch (e) {
+          console.log("❌ Impossible de parser l'erreur:", e);
+        }
         throw new Error(errorMsg);
       }
 
       const data = await response.json()
+      console.log("✅ Email généré avec succès:", data);
+      
       setGeneratedEmail(data.email)
       fetchEmails(); // Rafraîchir l'historique après génération
       addToActionHistory('generate', 'email', { 
         type: selectedType, 
         recipient: formData.recipient, 
-        subject: formData.subject || `Email généré par IA` 
+        subject: formData.subject || `Email ${selectedType} - ${formData.recipient}` 
       });
       logAccess('EMAIL_GENERATION_SUCCESS', true, { 
         type: selectedType, 
@@ -513,6 +561,7 @@ Urgence : ${formData.urgency}`
         description: "Votre email professionnel est prêt !",
       })
     } catch (error: any) {
+      console.log("❌ Erreur lors de la génération:", error);
       logAccess('EMAIL_GENERATION_FAILED', false, { 
         error: error.message,
         type: selectedType,
@@ -525,6 +574,7 @@ Urgence : ${formData.urgency}`
       })
     } finally {
       setIsGenerating(false)
+      console.log("🏁 Génération terminée");
     }
   }
 
@@ -732,9 +782,13 @@ Urgence : ${formData.urgency}`
   };
 
   // --- Ajouter une action à l'historique des actions
+  const generateUniqueId = (prefix: string = 'id') => {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now().toString(36).substr(2, 6)}`;
+  };
+
   const addToActionHistory = (action: string, target: string, details?: any) => {
     const newAction = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUniqueId('action'),
       action,
       target,
       timestamp: new Date(),
@@ -832,16 +886,14 @@ Urgence : ${formData.urgency}`
   // Chargement des données persistées
   const loadPersistedData = () => {
     try {
-      const savedFavorites = localStorage.getItem('emailFavorites');
-      if (savedFavorites) {
-        setFavorites(JSON.parse(savedFavorites));
-      }
+      // Nettoyer les IDs dupliqués en premier
+      cleanupDuplicateIds();
       
+      // Charger actionHistory
       const savedHistory = localStorage.getItem('actionHistory');
       if (savedHistory) {
-        const parsedHistory = JSON.parse(savedHistory);
-        // Convertir les timestamps string en objets Date
-        const historyWithDates = parsedHistory.map((action: any) => ({
+        const history = JSON.parse(savedHistory);
+        const historyWithDates = history.map((action: any) => ({
           ...action,
           timestamp: new Date(action.timestamp)
         }));
@@ -870,6 +922,17 @@ Urgence : ${formData.urgency}`
           ...parsedConsent,
           consentDate: parsedConsent.consentDate ? new Date(parsedConsent.consentDate) : null
         });
+      } else {
+        // Pour les nouveaux utilisateurs, activer le consentement IA par défaut
+        const defaultConsent = {
+          dataProcessing: true,
+          aiGeneration: true,
+          dataSharing: false,
+          consentDate: new Date(),
+          consentVersion: "1.0",
+        };
+        setAiConsent(defaultConsent);
+        localStorage.setItem('aiConsent', JSON.stringify(defaultConsent));
       }
       
       const savedLogs = localStorage.getItem('accessLogs');
@@ -2566,10 +2629,43 @@ Urgence : ${formData.urgency}`
 
   // --- Fonctionnalités de sécurité et RGPD (Étape 4) ---
   
+  // Nettoyer les IDs dupliqués dans localStorage
+  const cleanupDuplicateIds = () => {
+    try {
+      // Nettoyer actionHistory
+      const savedHistory = localStorage.getItem('actionHistory');
+      if (savedHistory) {
+        const history = JSON.parse(savedHistory);
+        const uniqueHistory = history.filter((action: any, index: number, self: any[]) => 
+          index === self.findIndex((a: any) => a.id === action.id)
+        );
+        if (uniqueHistory.length !== history.length) {
+          console.log(`Nettoyage: ${history.length - uniqueHistory.length} actions dupliquées supprimées`);
+          localStorage.setItem('actionHistory', JSON.stringify(uniqueHistory));
+        }
+      }
+
+      // Nettoyer accessLogs
+      const savedLogs = localStorage.getItem('accessLogs');
+      if (savedLogs) {
+        const logs = JSON.parse(savedLogs);
+        const uniqueLogs = logs.filter((log: any, index: number, self: any[]) => 
+          index === self.findIndex((l: any) => l.id === log.id)
+        );
+        if (uniqueLogs.length !== logs.length) {
+          console.log(`Nettoyage: ${logs.length - uniqueLogs.length} logs dupliqués supprimés`);
+          localStorage.setItem('accessLogs', JSON.stringify(uniqueLogs));
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors du nettoyage des IDs dupliqués:', error);
+    }
+  };
+  
   // Journal d'accès - Log toutes les actions importantes
   const logAccess = (action: string, success: boolean, details?: any) => {
     const logEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUniqueId('log'),
       action,
       ip: "127.0.0.1", // En production, récupérer la vraie IP
       userAgent: navigator.userAgent,
@@ -2991,11 +3087,34 @@ Urgence : ${formData.urgency}`
   useEffect(() => {
     if (user) {
       // Mesurer les performances de la page dashboard
-      measurePage('dashboard').then((metrics) => {
-        logger.performance('dashboard_load_time', metrics.pageLoadTime);
-        logger.performance('dashboard_fcp', metrics.firstContentfulPaint);
-        logger.performance('dashboard_lcp', metrics.largestContentfulPaint);
-      });
+      if (typeof window !== 'undefined') {
+        const startTime = performance.now();
+        
+        // Simuler la mesure des performances
+        setTimeout(() => {
+          const loadTime = performance.now() - startTime;
+          logger.performance('dashboard_load_time', loadTime);
+          
+          // Mesurer FCP et LCP si disponibles
+          if ('PerformanceObserver' in window) {
+            try {
+              const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                  if (entry.name === 'first-contentful-paint') {
+                    logger.performance('dashboard_fcp', entry.startTime);
+                  }
+                  if (entry.name === 'largest-contentful-paint') {
+                    logger.performance('dashboard_lcp', entry.startTime);
+                  }
+                }
+              });
+              observer.observe({ entryTypes: ['paint', 'largest-contentful-paint'] });
+            } catch (error) {
+              console.warn('Performance monitoring not available:', error);
+            }
+          }
+        }, 100);
+      }
 
       // Logger l'accès au dashboard
       logger.userAction('dashboard_access', {
@@ -3003,7 +3122,7 @@ Urgence : ${formData.urgency}`
         email: user.email
       });
     }
-  }, [user, measurePage, logger]);
+  }, [user, logger]);
 
   // Charger les données persistées au montage du composant
   useEffect(() => {
